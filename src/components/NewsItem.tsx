@@ -1,5 +1,5 @@
 import React from 'react';
-import './NewsItem.css';
+import styles from './NewsItem.module.css';
 
 interface NewsItemProps {
   article: {
@@ -12,24 +12,24 @@ interface NewsItemProps {
 
 const NewsItem: React.FC<NewsItemProps> = ({ article }) => {
   return (
-    <div className="news-item">
-      <div className="image-container">
+    <div className={styles["news-item"]}>
+      <div className={styles["image-container"]}>
         <img
           src={article.image || '/default.png'}
           alt={article.title}
-          className="news-image"
+          className={styles["news-image"]}
         />
       </div>
-      <div className="content">
+      <div className={styles["content"]}>
         <a
           href={article.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="news-title"
+          className={styles["news-title"]}
         >
           {article.title}
         </a>
-        <p className="news-date">
+        <p className={styles["news-date"]}>
           {new Date(article.pubDate).toLocaleString()}
         </p>
       </div>
