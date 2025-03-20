@@ -1,4 +1,5 @@
 import React from 'react';
+import './NewsItem.css';
 
 interface NewsItemProps {
   article: {
@@ -11,26 +12,26 @@ interface NewsItemProps {
 
 const NewsItem: React.FC<NewsItemProps> = ({ article }) => {
   return (
-    <div className="border rounded-lg overflow-hidden shadow-md flex flex-col justify-between h-full">
-      {/* Container cu raport 16:9 și imagine cu object-cover */}
-      <div className="relative w-full pb-[56.25%] overflow-hidden">
+    <div className="news-item">
+      <div className="image-container">
         <img
           src={article.image || '/default.png'}
           alt={article.title}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="news-image"
         />
       </div>
-
-      <div className="p-4 bg-white flex flex-col flex-grow">
+      <div className="content">
         <a
           href={article.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-lg font-bold text-black hover:text-red-500"
+          className="news-title"
         >
           {article.title}
         </a>
-        <p className="text-sm text-gray-600 mt-2">{article.pubDate}</p>
+        <p className="news-date">
+          {new Date(article.pubDate).toLocaleString()}
+        </p>
       </div>
     </div>
   );
