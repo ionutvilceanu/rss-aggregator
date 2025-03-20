@@ -10,25 +10,28 @@ const RSS_FEEDS = [
   'https://www.mundodeportivo.com/rss/home.xml',
 ];
 
-// Funcția de traducere cu LibreTranslate (sau alt serviciu)
-// Observă că punem `source: 'auto'`, deoarece feed-urile pot fi în italiană, spaniolă, franceză etc.
-async function translateText(text: string, targetLang: string): Promise<string> {
+// Funcția de traducere folosind Google Translate API
+// Se folosește cheia și endpoint-ul furnizate.
+// Observă că cererea trimite un array în formatul:
+//    [[[textul], "auto", targetLang], "wt_lib"]
+// iar răspunsul așteptat este de forma:
+//    [[translatedText], [detectedLang]]
+async function translateText(text: string, targetLang: "ro"): Promise<string> {
   if (!text) return '';
 
   try {
-    const response = await fetch('https://libretranslate.com/translate', {
+    const response = await fetch('https://translate-pa.googleapis.com/v1/translateHtml', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        q: text,
-        source: 'auto',    // 'auto' detectează limba inițială
-        target: targetLang,
-        format: 'text',
-      }),
+      headers: {
+        'Content-Type': 'application/json+protobuf',
+        'X-Goog-API-Key': 'AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520'
+      },
+      body: JSON.stringify([[[text], 'auto', targetLang], 'wt_lib']),
     });
 
     const data = await response.json();
-    return data.translatedText || text;
+    // Se așteaptă ca data[0] să fie un array ce conține textul tradus
+    return (data[0] && data[0][0]) || text;
   } catch (error) {
     console.error('Translation error:', error);
     return text; // Dacă apare o eroare, returnează textul original
