@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const feeds = await Promise.all(feedPromises);
 
     // 2. Combinăm toate articolele într-un singur array
-    let articles = feeds.flatMap((feed) =>
+    const articles = feeds.flatMap((feed) =>
       feed.items.map((item) => ({
         title: item.title || '',
         link: item.link || '',
