@@ -5,7 +5,7 @@ const parser = new Parser();
 
 // Feed-urile pe care vrei să le agregi
 const RSS_FEEDS = [
-  'https://www.gazzetta.it/dynamic-feed/rss/section/last.xml',
+  'https://www.gazzetta.it/dynamic-feed/rss/section/Calcio.xml',
   'https://e00-marca.uecdn.es/rss/portada.xml',
   'https://www.mundodeportivo.com/rss/home.xml',
 ];
