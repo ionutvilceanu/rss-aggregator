@@ -6,8 +6,9 @@ const parser = new Parser();
 // Feed-urile pe care vrei să le agregi
 const RSS_FEEDS = [
   'https://www.gazzetta.it/dynamic-feed/rss/section/Calcio.xml',
-  'https://e00-marca.uecdn.es/rss/portada.xml',
+  'https://feeds.bbci.co.uk/sport/rss.xml',
   'https://www.mundodeportivo.com/rss/home.xml',
+  'https://www.mirror.co.uk/sport/?service=rss'
 ];
 
 // Funcția de traducere folosind Google Translate API
