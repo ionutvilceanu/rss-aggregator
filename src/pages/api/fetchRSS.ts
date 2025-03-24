@@ -40,6 +40,11 @@ async function translateText(text: string, targetLang: string): Promise<string> 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    // Parametri de paginare
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 15;
+    const skip = (page - 1) * limit;
+
     // 1. Create the articles table if it doesn't exist (păstrăm asta pentru prima execuție)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS articles (
@@ -73,9 +78,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     );
 
-    // 5. Traducem titlul și conținutul pentru fiecare articol
+    // Obținem numărul total de articole pentru paginare
+    const totalArticles = articles.length;
+
+    // Aplicăm paginarea - doar articolele pentru pagina curentă
+    const paginatedArticles = articles.slice(skip, skip + limit);
+
+    // 5. Traducem titlul și conținutul pentru fiecare articol (doar cele paginate)
     const translatedArticles = await Promise.all(
-      articles.map(async (article) => {
+      paginatedArticles.map(async (article) => {
         const translatedTitle = await translateText(article.title, 'ro');
         const translatedContent = await translateText(article.content, 'ro');
         return {
@@ -110,8 +121,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     );
 
-    // 7. Răspundem cu articolele traduse
-    res.status(200).json(articlesWithIds);
+    // 7. Răspundem cu articolele traduse și informații de paginare
+    res.status(200).json({
+      articles: articlesWithIds,
+      pagination: {
+        total: totalArticles,
+        page,
+        limit,
+        pages: Math.ceil(totalArticles / limit)
+      }
+    });
   } catch (error) {
     console.error('Eroare la preluarea feed-urilor RSS:', error);
     res.status(500).json({ error: 'Eroare la preluarea feed-urilor RSS' });
