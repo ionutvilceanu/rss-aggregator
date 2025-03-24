@@ -109,7 +109,7 @@ export default function Home() {
       </Head>
 
       <main style={containerStyle}>
-        <h1 style={titleStyle}>Flux de Știri</h1>
+        <h1 style={titleStyle}>NewsWeek</h1>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '20px' }}>

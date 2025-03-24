@@ -9,7 +9,8 @@ const RSS_FEEDS = [
   'https://www.gazzetta.it/dynamic-feed/rss/section/last.xml',
   'https://e00-marca.uecdn.es/rss/portada.xml',
   'https://www.mundodeportivo.com/rss/home.xml',
-];
+  'https://www.mirror.co.uk/sport/?service=rss',
+  'https://www.skysports.com/rss/12040/football.xml'
 
 // Funcția de traducere folosind Google Translate API
 async function translateText(text: string, targetLang: string): Promise<string> {
