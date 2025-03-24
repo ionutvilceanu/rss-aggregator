@@ -40,7 +40,7 @@ async function translateText(text: string, targetLang: string): Promise<string> 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // 1. Create the articles table if it doesn't exist
+    // 1. Create the articles table if it doesn't exist (păstrăm asta pentru prima execuție)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS articles (
         id SERIAL PRIMARY KEY,
@@ -86,8 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     );
 
-    // 6. Salvăm articolele traduse în baza de date
-    const savedArticles = await Promise.all(
+    // 6. Verificăm doar dacă articolele există deja în baza de date pentru a returna ID-urile lor
+    const articlesWithIds = await Promise.all(
       translatedArticles.map(async (article) => {
         try {
           // Verificăm dacă articolul există deja
@@ -101,24 +101,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return { ...article, id: checkResult.rows[0].id };
           }
           
-          // Inserăm articolul nou
-          const result = await pool.query(
-            `INSERT INTO articles (title, content, image_url, source_url, pub_date) 
-             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-            [article.title, article.content, article.image, article.link, new Date(article.pubDate)]
-          );
-          
-          // Returnăm articolul cu ID-ul nou
-          return { ...article, id: result.rows[0].id };
+          // Articolul nu există încă, îl returnăm fără ID
+          return article;
         } catch (error) {
-          console.error('Error saving article:', error);
-          return article; // Returnăm articolul fără ID în caz de eroare
+          console.error('Error checking article:', error);
+          return article;
         }
       })
     );
 
-    // 7. Răspundem cu articolele traduse și salvate
-    res.status(200).json(savedArticles);
+    // 7. Răspundem cu articolele traduse
+    res.status(200).json(articlesWithIds);
   } catch (error) {
     console.error('Eroare la preluarea feed-urilor RSS:', error);
     res.status(500).json({ error: 'Eroare la preluarea feed-urilor RSS' });

@@ -28,14 +28,12 @@ const NewsItem: React.FC<NewsItemProps> = ({ article }) => {
             {article.title}
           </Link>
         ) : (
-          <a
-            href={article.link}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link 
+            href={`/article?url=${encodeURIComponent(article.link)}`}
             className={styles["news-title"]}
           >
             {article.title}
-          </a>
+          </Link>
         )}
         <p className={styles["news-date"]}>
           {new Date(article.pubDate).toLocaleString()}
