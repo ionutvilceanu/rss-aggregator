@@ -2,6 +2,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Article {
   id: number;
@@ -104,13 +105,6 @@ export default function ArticlePage() {
     width: '100%',
   };
 
-  const imageStyle = {
-    width: '100%',
-    height: 'auto',
-    objectFit: 'cover' as const,
-    borderRadius: '4px',
-  };
-
   const contentStyle = {
     fontSize: '1.1rem',
     lineHeight: '1.6',
@@ -185,10 +179,19 @@ export default function ArticlePage() {
           
           {article.image_url && (
             <div style={imageContainerStyle}>
-              <img
+              <Image
                 src={article.image_url}
                 alt={article.title}
-                style={imageStyle}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: '400px',
+                  objectFit: 'cover',
+                  borderRadius: '4px',
+                }}
+                width={1000}
+                height={600}
+                priority
               />
             </div>
           )}

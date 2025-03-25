@@ -96,9 +96,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
     });
 
-    // Obținem numărul total de articole pentru paginare (doar din feed-uri)
-    const totalFeedArticles = sortedFeedArticles.length;
-
     // 5. Preluăm articolele manuale din baza de date - acestea vor fi primele
     const manualArticlesResult = await pool.query(
       `SELECT id, title, content, image_url as image, source_url as link, 

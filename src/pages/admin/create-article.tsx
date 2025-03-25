@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
+// Comentat temporar useRouter deoarece nu este folosit în această componentă
+// import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function CreateArticle() {
-  const router = useRouter();
+  // const router = useRouter(); // Comentat temporar - va fi folosit pentru redirecționare dacă este necesar
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -90,8 +92,11 @@ export default function CreateArticle() {
 
           const uploadData = await uploadResponse.json();
           finalImageUrl = uploadData.url; // URL-ul imaginii după încărcare
-        } catch (uploadError: any) {
-          setError('Eroare la încărcarea imaginii: ' + uploadError.message);
+        } catch (uploadError: Error | unknown) {
+          const errorMessage = uploadError instanceof Error 
+            ? uploadError.message 
+            : 'Eroare necunoscută';
+          setError('Eroare la încărcarea imaginii: ' + errorMessage);
           setLoading(false);
           return;
         }
@@ -133,8 +138,11 @@ export default function CreateArticle() {
 
       // Opțional: redirecționăm către pagina articolului creat
       // router.push(`/article/${newArticle.id}`);
-    } catch (err: any) {
-      setError(err.message || 'A apărut o eroare la crearea articolului');
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'A apărut o eroare la crearea articolului';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -382,11 +390,30 @@ export default function CreateArticle() {
             {imagePreview && (
               <div style={{ marginTop: '1rem' }}>
                 <p>Preview imagine:</p>
-                <img 
-                  src={imagePreview} 
-                  alt="Preview" 
-                  style={imagePreviewStyle} 
-                />
+                {imagePreview.startsWith('blob:') ? (
+                  // Pentru URL-uri de tip blob (fișiere locale) folosim img normal
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      maxHeight: '300px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                    }}
+                  />
+                ) : (
+                  // Pentru URL-uri externe folosim Image din Next.js
+                  <Image
+                    src={imagePreview}
+                    alt="Preview"
+                    width={300}
+                    height={300}
+                    style={imagePreviewStyle}
+                  />
+                )}
               </div>
             )}
           </div>

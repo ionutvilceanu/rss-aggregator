@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import NewsItem from '../components/NewsItem';
 import Link from 'next/link';
 
@@ -25,8 +25,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Fetch articole pentru pagina curentă
-  const fetchArticles = async (page: number = 1) => {
+  // Fetch articole pentru pagina curentă, cu useCallback pentru a preveni regenerarea la fiecare render
+  const fetchArticles = useCallback(async (page: number = 1) => {
     try {
       const isLoadingMore = page > 1;
       if (isLoadingMore) {
@@ -53,12 +53,12 @@ export default function Home() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [pagination.limit]); // Dependență doar de pagination.limit
 
   // Încarcă prima pagină de articole
   useEffect(() => {
     fetchArticles();
-  }, []);
+  }, [fetchArticles]); // Folosim fetchArticles ca dependență
 
   // Handler pentru butonul "Încarcă mai multe"
   const handleLoadMore = () => {
@@ -111,6 +111,12 @@ export default function Home() {
 
       <main style={containerStyle}>
         <h1 style={titleStyle}>NewsWeek</h1>
+        
+        <div style={{ marginBottom: '20px' }}>
+          <Link href="/admin" style={{ color: '#0070f3', textDecoration: 'underline' }}>
+            Administrare
+          </Link>
+        </div>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '20px' }}>

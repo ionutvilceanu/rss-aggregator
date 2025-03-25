@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './NewsItem.module.css';
 
 interface NewsItemProps {
@@ -16,10 +17,14 @@ const NewsItem: React.FC<NewsItemProps> = ({ article }) => {
   return (
     <div className={styles["news-item"]}>
       <div className={styles["image-container"]}>
-        <img
+        <Image
           src={article.image || '/default.png'}
           alt={article.title}
           className={styles["news-image"]}
+          width={300}
+          height={200}
+          priority={false}
+          style={{ objectFit: 'cover' }}
         />
       </div>
       <div className={styles["content"]}>
