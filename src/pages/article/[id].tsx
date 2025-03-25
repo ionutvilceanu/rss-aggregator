@@ -10,6 +10,7 @@ interface Article {
   image_url: string;
   source_url: string;
   pub_date: string;
+  is_manual?: boolean;
 }
 
 export default function ArticlePage() {
@@ -197,15 +198,17 @@ export default function ArticlePage() {
             dangerouslySetInnerHTML={{ __html: article.content }} 
           />
           
-          <div style={sourceStyle}>
-            <a
-              href={article.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Citește articolul original
-            </a>
-          </div>
+          {article.is_manual !== true && (
+            <div style={sourceStyle}>
+              <a
+                href={article.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Citește articolul original
+              </a>
+            </div>
+          )}
         </article>
       </main>
     </div>

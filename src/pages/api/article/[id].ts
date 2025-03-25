@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Verificăm dacă avem un id sau un url
     if (id) {
       // Căutăm articolul după ID
-      const result = await pool.query('SELECT * FROM articles WHERE id = $1', [id]);
+      const result = await pool.query('SELECT id, title, content, image_url, source_url, pub_date, is_manual FROM articles WHERE id = $1', [id]);
       
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Articol negăsit' });
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Este o cerere pentru un articol care nu a fost încă salvat
       // Verificăm dacă articolul există deja în baza de date
       const checkResult = await pool.query(
-        'SELECT * FROM articles WHERE source_url = $1',
+        'SELECT id, title, content, image_url, source_url, pub_date, is_manual FROM articles WHERE source_url = $1',
         [url]
       );
       
@@ -120,9 +120,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         // Salvăm articolul în baza de date
         const result = await pool.query(
-          `INSERT INTO articles (title, content, image_url, source_url, pub_date) 
-           VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-          [articleData.title, articleData.content, articleData.image_url, articleData.source_url, articleData.pub_date]
+          `INSERT INTO articles (title, content, image_url, source_url, pub_date, is_manual) 
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [articleData.title, articleData.content, articleData.image_url, articleData.source_url, articleData.pub_date, false]
         );
         
         return res.status(200).json(result.rows[0]);

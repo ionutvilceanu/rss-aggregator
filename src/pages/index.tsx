@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import NewsItem from '../components/NewsItem';
+import Link from 'next/link';
 
 interface Article {
   id?: number;

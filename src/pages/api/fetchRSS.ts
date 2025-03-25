@@ -8,8 +8,7 @@ const parser = new Parser();
 const RSS_FEEDS = [
   'https://www.gazzetta.it/dynamic-feed/rss/section/last.xml',
   'https://e00-marca.uecdn.es/rss/portada.xml',
-  'https://www.mundodeportivo.com/rss/home.xml',
-  'https://www.mirror.co.uk/sport/?service=rss'
+  'https://www.mundodeportivo.com/rss/home.xml'
 ];
 
 // Funcția de traducere folosind Google Translate API
@@ -55,8 +54,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         image_url TEXT,
         source_url TEXT NOT NULL,
         pub_date TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_manual BOOLEAN DEFAULT FALSE
       )
+    `);
+    
+    // Adăugăm coloana is_manual dacă tabela există deja și nu are coloana
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name='articles'
+        ) AND NOT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name='articles' AND column_name='is_manual'
+        ) THEN
+          ALTER TABLE articles ADD COLUMN is_manual BOOLEAN DEFAULT FALSE;
+        END IF;
+      END $$;
     `);
 
     // 2. Preluăm feed-urile în paralel
@@ -71,23 +87,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         pubDate: item.pubDate || '',
         image: item.enclosure?.url || '',
         content: item.contentSnippet || item.content || '',
+        is_manual: false // Toate articolele din feed nu sunt manuale
       }))
     );
 
-    // 4. Sortăm articolele descrescător după dată
-    articles.sort(
-      (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+    // 4. Sortăm articolele din feed descrescător după dată
+    const sortedFeedArticles = articles.sort((a, b) => {
+      return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+    });
+
+    // Obținem numărul total de articole pentru paginare (doar din feed-uri)
+    const totalFeedArticles = sortedFeedArticles.length;
+
+    // 5. Preluăm articolele manuale din baza de date - acestea vor fi primele
+    const manualArticlesResult = await pool.query(
+      `SELECT id, title, content, image_url as image, source_url as link, 
+       pub_date as "pubDate", is_manual 
+       FROM articles WHERE is_manual = true ORDER BY pub_date DESC`
     );
+    
+    const manualArticles = manualArticlesResult.rows.map(article => ({
+      ...article,
+      pubDate: article.pubDate.toISOString()
+    }));
+    
+    // 6. Combinăm articolele manuale cu cele din feed, asigurându-ne că cele manuale sunt primele
+    const allArticlesSorted = [
+      ...manualArticles,
+      ...sortedFeedArticles
+    ];
+    
+    // Calculăm totalul și aplicăm paginarea după combinarea articolelor
+    const totalArticles = allArticlesSorted.length;
+    const paginatedArticles = allArticlesSorted.slice(skip, skip + limit);
 
-    // Obținem numărul total de articole pentru paginare
-    const totalArticles = articles.length;
-
-    // Aplicăm paginarea - doar articolele pentru pagina curentă
-    const paginatedArticles = articles.slice(skip, skip + limit);
-
-    // 5. Traducem titlul și conținutul pentru fiecare articol (doar cele paginate)
-    const translatedArticles = await Promise.all(
-      paginatedArticles.map(async (article) => {
+    // 7. Traducem titlul și conținutul pentru fiecare articol din feed (doar cele paginate)
+    const articlesToTranslate = paginatedArticles.filter(article => !article.is_manual);
+    const translatedFeedArticles = await Promise.all(
+      articlesToTranslate.map(async (article) => {
         const translatedTitle = await translateText(article.title, 'ro');
         const translatedContent = await translateText(article.content, 'ro');
         return {
@@ -98,22 +135,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     );
 
-    // 6. Verificăm doar dacă articolele există deja în baza de date pentru a returna ID-urile lor
+    // 8. Combinăm articolele traduse cu cele manuale care nu necesită traducere
+    const finalArticles = paginatedArticles.map(article => {
+      if (article.is_manual) return article;
+      // Găsim varianta tradusă a articolului
+      const translated = translatedFeedArticles.find(ta => ta.link === article.link);
+      return translated || article;
+    });
+
+    // 9. Verificăm doar dacă articolele din feed există deja în baza de date pentru ID-uri
     const articlesWithIds = await Promise.all(
-      translatedArticles.map(async (article) => {
+      finalArticles.map(async (article) => {
+        // Dacă articolul are deja un id, îl păstrăm așa cum este
+        if (article.id) return article;
+        
         try {
           // Verificăm dacă articolul există deja
           const checkResult = await pool.query(
-            'SELECT id FROM articles WHERE source_url = $1',
+            'SELECT id, is_manual FROM articles WHERE source_url = $1',
             [article.link]
           );
           
           if (checkResult.rows.length > 0) {
             // Articolul există deja, returnăm ID-ul existent
-            return { ...article, id: checkResult.rows[0].id };
+            return { 
+              ...article, 
+              id: checkResult.rows[0].id
+            };
           }
           
-          // Articolul nu există încă, îl returnăm fără ID
+          // Articolul nu există încă, îl returnăm așa cum este
           return article;
         } catch (error) {
           console.error('Error checking article:', error);
@@ -122,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     );
 
-    // 7. Răspundem cu articolele traduse și informații de paginare
+    // 10. Răspundem cu articolele combinate și informații de paginare
     res.status(200).json({
       articles: articlesWithIds,
       pagination: {
