@@ -75,104 +75,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       END $$;
     `);
 
-    // 2. Preluăm feed-urile în paralel
-    const feedPromises = RSS_FEEDS.map((feed) => parser.parseURL(feed));
-    const feeds = await Promise.all(feedPromises);
-
-    // 3. Combinăm toate articolele într-un singur array
-    const articles = feeds.flatMap((feed) =>
-      feed.items.map((item) => ({
-        title: item.title || '',
-        link: item.link || '',
-        pubDate: item.pubDate || '',
-        image: item.enclosure?.url || '',
-        content: item.contentSnippet || item.content || '',
-        is_manual: false // Toate articolele din feed nu sunt manuale
-      }))
-    );
-
-    // 4. Sortăm articolele din feed descrescător după dată
-    const sortedFeedArticles = articles.sort((a, b) => {
-      return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
-    });
-
-    // 5. Preluăm articolele manuale din baza de date - acestea vor fi primele
-    const manualArticlesResult = await pool.query(
-      `SELECT id, title, content, image_url as image, source_url as link, 
-       pub_date as "pubDate", is_manual 
-       FROM articles WHERE is_manual = true ORDER BY pub_date DESC`
-    );
+    // MODIFICAT: Nu mai preluăm feed-urile RSS direct
+    // Acum preluăm doar articolele din baza de date
     
-    const manualArticles = manualArticlesResult.rows.map(article => ({
-      ...article,
-      pubDate: article.pubDate.toISOString()
+    // 5. Preluăm articolele din baza de date
+    const articlesQueryResult = await pool.query(`
+      SELECT * FROM articles 
+      ORDER BY pub_date DESC 
+      LIMIT $1 OFFSET $2
+    `, [limit, skip]);
+    
+    // 6. Numărul total de articole pentru paginare
+    const totalCountResult = await pool.query('SELECT COUNT(*) FROM articles');
+    const totalArticles = parseInt(totalCountResult.rows[0].count);
+
+    // 7. Transformăm rezultatele în formatul așteptat
+    const dbArticles = articlesQueryResult.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      link: row.source_url,
+      pubDate: row.pub_date,
+      image: row.image_url,
+      content: row.content,
+      is_manual: row.is_manual
     }));
-    
-    // 6. Combinăm articolele manuale cu cele din feed, asigurându-ne că cele manuale sunt primele
-    const allArticlesSorted = [
-      ...manualArticles,
-      ...sortedFeedArticles
-    ];
-    
-    // Calculăm totalul și aplicăm paginarea după combinarea articolelor
-    const totalArticles = allArticlesSorted.length;
-    const paginatedArticles = allArticlesSorted.slice(skip, skip + limit);
 
-    // 7. Traducem titlul și conținutul pentru fiecare articol din feed (doar cele paginate)
-    const articlesToTranslate = paginatedArticles.filter(article => !article.is_manual);
-    const translatedFeedArticles = await Promise.all(
-      articlesToTranslate.map(async (article) => {
-        const translatedTitle = await translateText(article.title, 'ro');
-        const translatedContent = await translateText(article.content, 'ro');
-        return {
-          ...article,
-          title: translatedTitle,
-          content: translatedContent,
-        };
-      })
-    );
-
-    // 8. Combinăm articolele traduse cu cele manuale care nu necesită traducere
-    const finalArticles = paginatedArticles.map(article => {
-      if (article.is_manual) return article;
-      // Găsim varianta tradusă a articolului
-      const translated = translatedFeedArticles.find(ta => ta.link === article.link);
-      return translated || article;
-    });
-
-    // 9. Verificăm doar dacă articolele din feed există deja în baza de date pentru ID-uri
-    const articlesWithIds = await Promise.all(
-      finalArticles.map(async (article) => {
-        // Dacă articolul are deja un id, îl păstrăm așa cum este
-        if (article.id) return article;
-        
-        try {
-          // Verificăm dacă articolul există deja
-          const checkResult = await pool.query(
-            'SELECT id, is_manual FROM articles WHERE source_url = $1',
-            [article.link]
-          );
-          
-          if (checkResult.rows.length > 0) {
-            // Articolul există deja, returnăm ID-ul existent
-            return { 
-              ...article, 
-              id: checkResult.rows[0].id
-            };
-          }
-          
-          // Articolul nu există încă, îl returnăm așa cum este
-          return article;
-        } catch (error) {
-          console.error('Error checking article:', error);
-          return article;
-        }
-      })
-    );
-
-    // 10. Răspundem cu articolele combinate și informații de paginare
+    // 10. Răspundem cu articolele și informații de paginare
     res.status(200).json({
-      articles: articlesWithIds,
+      articles: dbArticles,
       pagination: {
         total: totalArticles,
         page,

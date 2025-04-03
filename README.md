@@ -1,24 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RSS Aggregator
 
-## Getting Started
+O aplicație de agregare a știrilor din diverse surse RSS, cu funcționalități de generare automată de conținut folosind AI.
 
-First, run the development server:
+## Funcționalități
+
+- Agregarea știrilor din surse RSS (Gazzetta, Marca, Mundo Deportivo, DigiSport)
+- Traducerea automată a știrilor în limba română
+- Generarea de articole noi pe baza știrilor agregate folosind AI (Llama prin Groq API)
+- Interfață administrativă pentru gestionarea conținutului
+
+## Configurare
+
+### 1. Instalare dependențe
+
+```bash
+npm install
+```
+
+### 2. Configurare variabile de mediu
+
+Creați un fișier `.env.local` cu următorul conținut:
+
+```
+# Cheia API pentru Groq
+GROQ_API_KEY=your_groq_api_key_here
+
+# Cheia API pentru cron jobs
+CRON_API_KEY=secure_cron_key_here
+
+# Configurări bază de date
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=icsoft.go.ro
+DB_PORT=5432
+DB_NAME=newDB
+```
+
+### 3. Pornirea aplicației în mod dezvoltare
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Utilizare
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Importul știrilor din RSS
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Aplicația poate importa știri din următoarele surse RSS:
+- Gazzetta dello Sport
+- Marca
+- Mundo Deportivo
+- DigiSport
+
+Există două moduri de a importa știri:
+
+1. **Manual**: Din interfața de administrare, folosind butonul "Importă RSS"
+2. **Automat**: Configurând un cronjob care apelează endpoint-ul `/api/cronImportRSS` la intervale regulate
+
+### Generarea știrilor cu AI
+
+Aplicația poate genera automat articole noi pe baza știrilor importate, folosind:
+- Modelul Llama 3 (70B) prin API-ul Groq
+- Un prompt jurnalistic care asigură un conținut de calitate
+- Fiecare subiect este procesat o singură dată pentru a evita duplicatele
+
+Pentru a genera articole noi:
+1. Din interfața de administrare, folosiți butonul "Generare Știri AI"
+2. Configurați un cronjob care apelează endpoint-ul `/api/cronGenerateNews` la intervale regulate
+
+## Configurarea cronjob-urilor
+
+Pentru a automatiza importul și generarea de știri, puteți configura cronjob-uri folosind exemplele de mai jos:
+
+```bash
+# Import știri noi din RSS la fiecare 3 ore
+0 */3 * * * curl -X POST "https://your-site.com/api/cronImportRSS?apiKey=secure_cron_key_here"
+
+# Generarea știrilor noi o dată pe zi (la ora 2 dimineața)
+0 2 * * * curl -X POST "https://your-site.com/api/cronGenerateNews?apiKey=secure_cron_key_here"
+```
+
+## Contribuții
+
+Contribuțiile sunt binevenite. Pentru modificări majore, vă rugăm să deschideți mai întâi o problemă pentru a discuta ce doriți să schimbați.
 
 ## Learn More
 

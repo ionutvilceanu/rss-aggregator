@@ -20,6 +20,7 @@ export default function ArticlePage() {
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -42,6 +43,35 @@ export default function ArticlePage() {
 
     fetchArticle();
   }, [id]);
+
+  const handleDeleteArticle = async () => {
+    if (!confirm('Ești sigur că vrei să ștergi acest articol?')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      const response = await fetch(`/api/article/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Nu s-a putut șterge articolul');
+      }
+      
+      // Redirecționăm către pagina principală după ștergere
+      router.push('/');
+    } catch (err) {
+      console.error('Eroare la ștergerea articolului:', err);
+      setError('Nu s-a putut șterge articolul');
+      setIsDeleting(false);
+    }
+  };
 
   // Stiluri pentru layout și componente
   const headerStyle = {
@@ -117,6 +147,17 @@ export default function ArticlePage() {
     borderTop: '1px solid #eee',
     color: '#0042FF',
     fontWeight: 'bold' as const,
+  };
+
+  const deleteButtonStyle = {
+    backgroundColor: '#e53e3e',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '0.5rem 1rem',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    marginTop: '1rem',
   };
 
   if (loading) return (
@@ -210,6 +251,18 @@ export default function ArticlePage() {
               >
                 Citește articolul original
               </a>
+            </div>
+          )}
+          
+          {article.is_manual === true && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <button 
+                style={deleteButtonStyle}
+                onClick={handleDeleteArticle}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Se șterge...' : 'Șterge articolul'}
+              </button>
             </div>
           )}
         </article>
