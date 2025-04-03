@@ -6,6 +6,10 @@ export default function GenerateNews() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forceRefresh, setForceRefresh] = useState(false);
+  const [enableWebSearch, setEnableWebSearch] = useState(true);
+  const [customDate, setCustomDate] = useState('2025-04-03');
+  const [useCustomDate, setUseCustomDate] = useState(true);
 
   const handleGenerateNews = async () => {
     setLoading(true);
@@ -18,7 +22,11 @@ export default function GenerateNews() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ 
+          forceRefresh,
+          customDate: useCustomDate ? customDate : null,
+          enableWebSearch
+        }),
       });
 
       const data = await response.json();
@@ -58,9 +66,72 @@ export default function GenerateNews() {
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Generare Știri Automată</h2>
           <p className="mb-4">
-            Această funcție va genera noi articole bazate pe ultimele 5 știri din baza de date folosind modelul Llama prin API-ul Groq.
-            Fiecare articol va fi rescris cu o perspectivă jurnalistică și va include cercetare adițională despre subiect.
+            Această funcție va genera articole noi și îmbunătățite pe baza ultimelor 5 știri din sursele RSS.
+            Algoritmul AI va:
           </p>
+          <ul className="list-disc pl-6 mb-4">
+            <li>Citi și analiza <strong>titlul și conținutul complet</strong> al articolelor originale</li>
+            <li>Extrage informațiile cheie și faptele importante</li>
+            <li>Efectua cercetare adițională despre subiect</li>
+            <li>Genera un articol complet rescris, bine structurat și informatv</li>
+            <li>Adăuga context și detalii relevante suplimentare</li>
+            <li className="font-semibold text-green-700">Păstra actualitatea și referințele temporale din articolul original</li>
+            {enableWebSearch && (
+              <li className="font-semibold text-blue-700">Efectua căutări web pentru informații recente și context adițional</li>
+            )}
+          </ul>
+          <p className="mb-6">
+            Fiecare articol va avea minim 500 de cuvinte și va fi structurat cu introducere, cuprins detaliat
+            și concluzie, folosind un stil jurnalistic profesionist.
+          </p>
+
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="forceRefresh"
+                checked={forceRefresh}
+                onChange={(e) => setForceRefresh(e.target.checked)}
+                className="mr-2 h-5 w-5 text-blue-600"
+              />
+              <label htmlFor="forceRefresh" className="text-sm font-medium">
+                Forțează reîmprospătarea (va regenera articole chiar dacă au fost procesate anterior)
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="enableWebSearch"
+                checked={enableWebSearch}
+                onChange={(e) => setEnableWebSearch(e.target.checked)}
+                className="mr-2 h-5 w-5 text-blue-600"
+              />
+              <label htmlFor="enableWebSearch" className="text-sm font-medium">
+                Activează căutarea web pentru informații actuale
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="useCustomDate"
+                checked={useCustomDate}
+                onChange={(e) => setUseCustomDate(e.target.checked)}
+                className="mr-2 h-5 w-5 text-blue-600"
+              />
+              <label htmlFor="useCustomDate" className="text-sm font-medium mr-4">
+                Folosește data personalizată:
+              </label>
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                disabled={!useCustomDate}
+                className={`px-2 py-1 border rounded ${!useCustomDate ? 'bg-gray-100 text-gray-500' : ''}`}
+              />
+            </div>
+          </div>
 
           <button
             onClick={handleGenerateNews}

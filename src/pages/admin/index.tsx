@@ -3,6 +3,24 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
+// Funcție utilitară pentru curățarea titlurilor
+function cleanTitle(title: string): string {
+  if (!title) return '';
+  
+  // Elimină ** și alte caractere speciale de la începutul titlului
+  let cleanedTitle = title.replace(/^\*\*+\s*/, '');
+  
+  // Elimină ghilimelele HTML entities (&quot;)
+  cleanedTitle = cleanedTitle.replace(/&quot;/g, '"');
+  
+  // Elimină caracterele HTML entities
+  cleanedTitle = cleanedTitle.replace(/&amp;/g, '&');
+  cleanedTitle = cleanedTitle.replace(/&lt;/g, '<');
+  cleanedTitle = cleanedTitle.replace(/&gt;/g, '>');
+  
+  return cleanedTitle.trim();
+}
+
 interface Article {
   id: number;
   title: string;
@@ -231,6 +249,9 @@ export default function AdminPage() {
             <Link href="/admin/generate-news" style={navLinkStyle}>
               Generare știri
             </Link>
+            <Link href="/admin/generate-reels" style={navLinkStyle}>
+              Generator Reeluri
+            </Link>
             <button 
               onClick={handleLogout} 
               style={{
@@ -262,6 +283,13 @@ export default function AdminPage() {
             backgroundColor: '#22c55e', // Verde pentru a diferenția de butonul de creare
           }}>
             Generare Știri AI
+          </Link>
+          
+          <Link href="/admin/generate-reels" style={{
+            ...createButtonStyle,
+            backgroundColor: '#d946ef', // Violet pentru generator de reeluri
+          }}>
+            Generator Reeluri TikTok
           </Link>
           
           <button 
@@ -318,7 +346,7 @@ export default function AdminPage() {
               {articles.map((article) => (
                 <tr key={article.id}>
                   <td style={tdStyle}>{article.id}</td>
-                  <td style={tdStyle}>{article.title}</td>
+                  <td style={tdStyle}>{cleanTitle(article.title)}</td>
                   <td style={tdStyle}>
                     {new Date(article.pub_date).toLocaleDateString('ro-RO', {
                       year: 'numeric',

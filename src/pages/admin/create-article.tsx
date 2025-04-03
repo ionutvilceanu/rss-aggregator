@@ -261,7 +261,7 @@ export default function CreateArticle() {
       <header style={headerStyle}>
         <nav style={navStyle}>
           <Link href="/">
-            <div style={logoStyle}>NewsWeek</div>
+            <div style={logoStyle}>AiSport</div>
           </Link>
           <div style={navLinksStyle}>
             <Link href="/" style={navLinkStyle}>

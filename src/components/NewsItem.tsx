@@ -3,6 +3,24 @@ import Link from 'next/link';
 import Image from 'next/image';
 import styles from './NewsItem.module.css';
 
+// Funcție utilitară pentru curățarea titlurilor
+function cleanTitle(title: string): string {
+  if (!title) return '';
+  
+  // Elimină ** și alte caractere speciale de la începutul titlului
+  let cleanedTitle = title.replace(/^\*\*+\s*/, '');
+  
+  // Elimină ghilimelele HTML entities (&quot;)
+  cleanedTitle = cleanedTitle.replace(/&quot;/g, '"');
+  
+  // Elimină caracterele HTML entities
+  cleanedTitle = cleanedTitle.replace(/&amp;/g, '&');
+  cleanedTitle = cleanedTitle.replace(/&lt;/g, '<');
+  cleanedTitle = cleanedTitle.replace(/&gt;/g, '>');
+  
+  return cleanedTitle.trim();
+}
+
 interface NewsItemProps {
   article: {
     id?: number;
@@ -19,7 +37,7 @@ const NewsItem: React.FC<NewsItemProps> = ({ article }) => {
       <div className={styles["image-container"]}>
         <Image
           src={article.image || '/default.png'}
-          alt={article.title}
+          alt={cleanTitle(article.title)}
           className={styles["news-image"]}
           width={300}
           height={200}
@@ -30,14 +48,14 @@ const NewsItem: React.FC<NewsItemProps> = ({ article }) => {
       <div className={styles["content"]}>
         {article.id ? (
           <Link href={`/article/${article.id}`} className={styles["news-title"]}>
-            {article.title}
+            {cleanTitle(article.title)}
           </Link>
         ) : (
           <Link 
             href={`/article?url=${encodeURIComponent(article.link)}`}
             className={styles["news-title"]}
           >
-            {article.title}
+            {cleanTitle(article.title)}
           </Link>
         )}
         <p className={styles["news-date"]}>

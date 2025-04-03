@@ -128,7 +128,7 @@ export default function Home() {
       </Head>
 
       <main style={containerStyle}>
-        <h1 style={titleStyle}>NewsWeek</h1>
+        <h1 style={titleStyle}>AiSport</h1>
         
         {isAdmin && (
           <div style={{ marginBottom: '20px' }}>

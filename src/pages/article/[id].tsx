@@ -3,6 +3,116 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
+import { getCookie } from 'cookies-next';
+
+// Funcție utilitară pentru curățarea titlurilor
+function cleanTitle(title: string): string {
+  if (!title) return '';
+  
+  // Elimină ** și alte caractere speciale de la începutul titlului
+  let cleanedTitle = title.replace(/^\*\*+\s*/, '');
+  
+  // Elimină ghilimelele HTML entities (&quot;)
+  cleanedTitle = cleanedTitle.replace(/&quot;/g, '"');
+  
+  // Elimină caracterele HTML entities
+  cleanedTitle = cleanedTitle.replace(/&amp;/g, '&');
+  cleanedTitle = cleanedTitle.replace(/&lt;/g, '<');
+  cleanedTitle = cleanedTitle.replace(/&gt;/g, '>');
+  
+  return cleanedTitle.trim();
+}
+
+// Funcție pentru formatarea conținutului de articol
+function formatArticleContent(content: string): string {
+  if (!content) return '';
+  
+  // Pasul 1: Curăță entitățile HTML
+  let formattedContent = content.replace(/&quot;/g, '"')
+                               .replace(/&amp;/g, '&')
+                               .replace(/&lt;/g, '<')
+                               .replace(/&gt;/g, '>');
+  
+  // Pasul 2: Elimină toate ** de la începutul paragrafelor
+  formattedContent = formattedContent.replace(/\*\*+\s*/g, '');
+  
+  // Pasul 3: Caută referința la final și o separă
+  const referenceRegex = /(\*\*Referință:\*\*|\*\*Referinta:\*\*|Referință:|Referinta:|Sursă:|Sursa:|Această știre este din|Aceasta știre este din)(.+)$/i;
+  let reference = '';
+  
+  const referenceMatch = formattedContent.match(referenceRegex);
+  if (referenceMatch) {
+    reference = referenceMatch[0];
+    formattedContent = formattedContent.replace(referenceRegex, '');
+  }
+  
+  // Pasul 4: Împarte conținutul în propoziții
+  const sentences = formattedContent.split(/(?<=[.!?])\s+/g).filter(s => s.trim().length > 0);
+  
+  // Pasul 5: Grupează propozițiile în paragrafe
+  const paragraphs: string[] = [];
+  let currentParagraph = '';
+  let sentenceCount = 0;
+  const maxSentencesPerParagraph = 3;
+  
+  sentences.forEach((sentence, index) => {
+    // Începe un paragraf nou dacă:
+    // 1. Fraza este un citat (începe și se termină cu ghilimele)
+    // 2. Fraza conține un început de citat (așa cum ar fi într-un interviu)
+    // 3. Am atins numărul maxim de propoziții per paragraf
+    // 4. Fraza conține markeri specifici de schimbare a subiectului
+    
+    const isCitation = (sentence.trim().startsWith('"') && sentence.trim().endsWith('"')) || 
+                       (sentence.trim().startsWith('„') && sentence.trim().endsWith('"'));
+    const hasQuoteMarker = sentence.includes(':"') || sentence.includes('":') || 
+                          sentence.includes(': "') || sentence.includes('" :') ||
+                          sentence.includes('spus:') || sentence.includes('declarat:');
+    const isNewSubject = sentence.includes('În altă ordine de idei') || 
+                        sentence.includes('Pe de altă parte') ||
+                        sentence.includes('Între timp') ||
+                        sentence.includes('Cu toate acestea');
+    
+    // Dacă avem deja un paragraf și întâlnim un motiv să începem unul nou
+    if (currentParagraph && (isCitation || hasQuoteMarker || sentenceCount >= maxSentencesPerParagraph || isNewSubject)) {
+      paragraphs.push(currentParagraph.trim());
+      currentParagraph = '';
+      sentenceCount = 0;
+    }
+    
+    // Adaugă fraza la paragraful curent
+    currentParagraph += sentence + ' ';
+    sentenceCount++;
+    
+    // Dacă e ultima propoziție, adaugă paragraful
+    if (index === sentences.length - 1 && currentParagraph.trim()) {
+      paragraphs.push(currentParagraph.trim());
+    }
+  });
+  
+  // Pasul 6: Creează conținutul HTML formatat
+  let htmlContent = '';
+  
+  paragraphs.forEach((paragraph, index) => {
+    const trimmedParagraph = paragraph.trim();
+    
+    // Verifică dacă e un citat
+    if ((trimmedParagraph.startsWith('"') && trimmedParagraph.endsWith('"')) ||
+        (trimmedParagraph.startsWith('„') && trimmedParagraph.endsWith('"'))) {
+      htmlContent += `<blockquote>${trimmedParagraph}</blockquote>`;
+    } 
+    // Paragraf normal
+    else {
+      htmlContent += `<p>${trimmedParagraph}</p>`;
+    }
+  });
+  
+  // Adaugă referința dacă există
+  if (reference) {
+    htmlContent += `<p class="article-reference"><em>${reference.replace(/\*\*/g, '')}</em></p>`;
+  }
+  
+  return htmlContent;
+}
 
 interface Article {
   id: number;
@@ -21,6 +131,13 @@ export default function ArticlePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Verifică dacă utilizatorul este admin
+  useEffect(() => {
+    const authToken = getCookie('auth-token');
+    setIsAdmin(authToken === 'admin-session-token');
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -141,6 +258,38 @@ export default function ArticlePage() {
     color: '#333',
   };
 
+  const blockquoteStyle = `
+    blockquote {
+      font-style: italic;
+      border-left: 4px solid #0042FF;
+      padding-left: 20px;
+      margin: 20px 0;
+      color: #555;
+    }
+    
+    .article-reference {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 30px;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+    
+    p {
+      margin-bottom: 1.5rem;
+      text-align: justify;
+    }
+    
+    p:first-of-type:first-letter {
+      font-size: 3rem;
+      font-weight: bold;
+      float: left;
+      margin-right: 8px;
+      line-height: 1;
+      color: #0042FF;
+    }
+  `;
+
   const sourceStyle = {
     marginTop: '2rem',
     padding: '1rem 0',
@@ -181,16 +330,17 @@ export default function ArticlePage() {
   return (
     <div>
       <Head>
-        <title>{article.title}</title>
+        <title>{cleanTitle(article.title)}</title>
         <meta name="description" content={article.content.substring(0, 160)} />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>{blockquoteStyle}</style>
       </Head>
 
       {/* Header similar cu golazo.ro */}
       <header style={headerStyle}>
         <nav style={navStyle}>
           <Link href="/">
-            <div style={logoStyle}>NewsWeek</div>
+            <div style={logoStyle}>AiSport</div>
           </Link>
           <div style={navLinksStyle}>
             <Link href="/" style={navLinkStyle}>
@@ -199,6 +349,11 @@ export default function ArticlePage() {
             <Link href="/subscribe" style={navLinkStyle}>
               Abonare
             </Link>
+            {isAdmin && (
+              <Link href="/admin" style={navLinkStyle}>
+                Admin
+              </Link>
+            )}
           </div>
         </nav>
       </header>
@@ -206,7 +361,7 @@ export default function ArticlePage() {
       <main style={containerStyle}>
         <article>
           <header style={articleHeaderStyle}>
-            <h1 style={titleStyle}>{article.title}</h1>
+            <h1 style={titleStyle}>{cleanTitle(article.title)}</h1>
             <p style={dateStyle}>
               Publicat: {new Date(article.pub_date).toLocaleDateString('ro-RO', {
                 year: 'numeric',
@@ -222,7 +377,7 @@ export default function ArticlePage() {
             <div style={imageContainerStyle}>
               <Image
                 src={article.image_url}
-                alt={article.title}
+                alt={cleanTitle(article.title)}
                 style={{
                   width: '100%',
                   height: 'auto',
@@ -239,7 +394,7 @@ export default function ArticlePage() {
           
           <div 
             style={contentStyle}
-            dangerouslySetInnerHTML={{ __html: article.content }} 
+            dangerouslySetInnerHTML={{ __html: formatArticleContent(article.content) }} 
           />
           
           {article.is_manual !== true && (
@@ -249,21 +404,20 @@ export default function ArticlePage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Citește articolul original
+                Sursă: {article.source_url.split('/')[2]}
               </a>
             </div>
           )}
-          
-          {article.is_manual === true && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <button 
-                style={deleteButtonStyle}
-                onClick={handleDeleteArticle}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Se șterge...' : 'Șterge articolul'}
-              </button>
-            </div>
+
+          {/* Adaugă butonul de ștergere doar pentru admin */}
+          {isAdmin && (
+            <button 
+              onClick={handleDeleteArticle} 
+              disabled={isDeleting}
+              style={deleteButtonStyle}
+            >
+              {isDeleting ? 'Se șterge...' : 'Șterge Articolul'}
+            </button>
           )}
         </article>
       </main>

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
+import { searchSportsNews } from '../../lib/webSearch';
 
 interface Article {
   id?: number;
@@ -49,27 +50,88 @@ async function translateText(text: string, targetLang: string): Promise<string> 
 }
 
 // Funcție pentru a genera un nou articol folosind API-ul Groq și modelul Llama
-async function generateArticleWithLlama(article: Article): Promise<{ title: string; content: string }> {
+async function generateArticleWithLlama(
+  article: Article, 
+  customDate: Date | null = null,
+  enableWebSearch: boolean = false
+): Promise<{ title: string; content: string }> {
   try {
-    // Construim prompt-ul pentru LLM
-    const prompt = `Ești un jurnalist profesionist care rescrie știri pentru a le face mai interesante și mai informative.
+    // Data actuală sau personalizată pentru context temporal
+    const currentDate = customDate || new Date();
+    const formattedDate = currentDate.toLocaleDateString('ro-RO', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
     
-Iată o știre originală cu titlul: "${article.title}"
+    // Calculăm timpul trecut de la publicarea articolului original
+    const pubDate = new Date(article.pub_date);
+    const timeDiff = currentDate.getTime() - pubDate.getTime();
+    const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+    
+    let temporalContext = "";
+    if (daysDiff === 0) {
+      temporalContext = "Acest articol a fost publicat astăzi.";
+    } else if (daysDiff === 1) {
+      temporalContext = "Acest articol a fost publicat ieri.";
+    } else if (daysDiff < 0) {
+      // Cazul când data articolului este în viitor față de data curentă/personalizată
+      temporalContext = `Acest articol este programat să fie publicat în ${Math.abs(daysDiff)} zile.`;
+    } else {
+      temporalContext = `Acest articol a fost publicat acum ${daysDiff} zile.`;
+    }
 
-Conținutul original: "${article.content}"
+    // Extrage domeniul din URL-ul sursei
+    let sourceDomain = "";
+    try {
+      const urlObj = new URL(article.source_url);
+      sourceDomain = urlObj.hostname.replace('www.', '');
+    } catch (e) {
+      sourceDomain = "sursa originală";
+    }
+    
+    // Rezultate căutare web pentru context adițional
+    let webSearchResults = "";
+    if (enableWebSearch) {
+      console.log(`Efectuez căutare web pentru articolul: "${article.title}"`);
+      webSearchResults = await searchSportsNews(article.title);
+    }
+    
+    // Construim prompt-ul pentru LLM
+    const prompt = `Ești un jurnalist profesionist specializat în știri sportive actuale la data de ${formattedDate}.
 
-Bazându-te pe această știre:
-1. Fă cercetare adițională despre subiect
-2. Rescrie articolul complet din perspectivă jurnalistică profesională
-3. Păstrează tonul obiectiv și furnizează detalii suplimentare relevante
-4. Asigură-te că articolul este informativi, corect și captivant
-5. Structurează articolul cu introducere, cuprins și concluzii clare
-6. Nu adăuga informații false sau care nu pot fi verificate
-7. Nu menționa că este un articol generat sau rescris
+Rescrie următoarea știre recentă, punând accent pe ACTUALITATEA informațiilor și păstrând toate datele și evenimentele recente.
 
-Răspunsul tău trebuie să conțină două secțiuni:
-TITLU: [Noul titlu al articolului]
-CONȚINUT: [Conținutul complet al noului articol]`;
+Titlul original: "${article.title}"
+
+Conținutul original: 
+"""
+${article.content}
+"""
+
+Data publicării originale: ${pubDate.toLocaleDateString('ro-RO')}
+Context temporal: ${temporalContext}
+Sursa originală: ${sourceDomain}
+URL sursă: ${article.source_url}
+
+${webSearchResults ? `INFORMAȚII ACTUALE DIN CĂUTARE WEB (3 APRILIE 2025):\n${webSearchResults}\n` : ''}
+
+INSTRUCȚIUNI IMPORTANTE:
+1. Această știre este RECENTĂ - tratează informațiile ca fiind de ACTUALITATE
+2. Menține TOATE referințele temporale din articolul original (ieri, azi, mâine, data exactă)
+3. Nu modifica datele, scorurile sau statisticile menționate în articolul original
+4. Păstrează toate numele, echipele și competițiile exacte din articolul original
+5. Extinde știrea cu informații de context relevante și actuale
+6. Evidențiază când s-a întâmplat evenimentul folosind expresii clare de timp (ex: "ieri, 15 octombrie")
+7. Menționează explicit că este o știre recentă și actuală (din ziua publicării originale)
+8. Fă cercetare adițională DOAR pentru a completa cu detalii contextuale, nu pentru a modifica faptele
+9. Structurează articolul cu titlu captivant, introducere, cuprins și concluzie
+10. Incluzi în final și o referință că știrea este din data originală de publicare
+${webSearchResults ? '11. FOLOSEȘTE informațiile actuale din căutarea web pentru a completa cu context și date recente.' : ''}
+
+Răspunsul tău trebuie să conțină:
+TITLU: [Titlu captivant care subliniază actualitatea știrii]
+CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
     // Verifică dacă există o cheie API configurată
     const apiKey = process.env.GROQ_API_KEY || 'GROQ_API_KEY';
@@ -88,7 +150,7 @@ CONȚINUT: [Conținutul complet al noului articol]`;
         messages: [
           {
             role: 'system',
-            content: 'Ești un jurnalist profesionist și experimentat care poate cerceta subiecte și scrie articole de calitate înaltă în stil jurnalistic.'
+            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi.'
           },
           {
             role: 'user',
@@ -145,6 +207,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
   
+  // Parametru pentru a forța preluarea celor mai recente știri ignorând verificările de duplicare
+  const forceRefresh = req.query.forceRefresh === 'true';
+  
+  // Opțional: Acceptăm o dată specifică pentru generare (pentru override)
+  const customDate = req.query.customDate ? new Date(req.query.customDate as string) : null;
+  
+  // Parametru pentru a activa căutările web
+  const enableWebSearch = req.query.enableWebSearch === 'true';
+  
   try {
     // Verificăm mai întâi dacă tabela există
     try {
@@ -184,11 +255,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Preluăm feed-urile în paralel
-    console.log('Începerea preluării RSS feeds...');
-    const parser = new Parser();
+    console.log('Preluare feed-uri RSS cu timestamp pentru evitarea cache-ului...');
+    const parser = new Parser({
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    // Adăugăm un timestamp la URL-uri pentru a evita cache-ul
+    const timestamp = new Date().getTime();
     const feedPromises = RSS_FEEDS.map((feed) => {
-      console.log(`Preluare din: ${feed}`);
-      return parser.parseURL(feed).catch(error => {
+      const feedUrl = feed.includes('?') ? `${feed}&_t=${timestamp}` : `${feed}?_t=${timestamp}`;
+      console.log(`Preluare din: ${feedUrl}`);
+      return parser.parseURL(feedUrl).catch(error => {
         console.error(`Eroare la preluarea feed-ului ${feed}:`, error);
         return { items: [] }; // Întoarce un obiect gol în caz de eroare
       });
@@ -224,33 +304,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const latestArticles = sortedArticles.slice(0, 5);
     console.log(`Ultimele 5 articole selectate pentru procesare.`);
 
-    // Verificăm dacă aceste articole au fost deja procesate
-    // Un articol este considerat procesat dacă există în baza de date un articol cu source_url având prefixul "regenerated-from-url:"
-    const articlesToProcess = [];
+    // Dacă forceRefresh este true, procesăm toate articolele recente fără a verifica duplicatele
+    let articlesToProcess = latestArticles;
     
-    for (const article of latestArticles) {
-      // Verificăm dacă articolul a fost deja procesat
-      const encodedUrl = encodeURIComponent(article.source_url);
-      const checkResult = await pool.query(
-        "SELECT EXISTS (SELECT 1 FROM articles WHERE source_url = $1) AS exists",
-        [`regenerated-from-url:${encodedUrl}`]
-      );
+    if (!forceRefresh) {
+      // Verificăm dacă aceste articole au fost deja procesate
+      articlesToProcess = [];
       
-      if (!checkResult.rows[0].exists) {
-        articlesToProcess.push(article);
+      for (const article of latestArticles) {
+        // Verificăm dacă articolul a fost deja procesat
+        const encodedUrl = encodeURIComponent(article.source_url);
+        const checkResult = await pool.query(
+          "SELECT EXISTS (SELECT 1 FROM articles WHERE source_url = $1) AS exists",
+          [`regenerated-from-url:${encodedUrl}`]
+        );
+        
+        if (!checkResult.rows[0].exists) {
+          articlesToProcess.push(article);
+        }
       }
     }
 
     if (articlesToProcess.length === 0) {
       return res.status(200).json({
-        message: 'Toate articolele recente din RSS au fost deja procesate. Nu sunt necesare generări noi.',
+        message: forceRefresh 
+          ? 'Nu s-au găsit articole noi în sursele RSS.' 
+          : 'Toate articolele recente din RSS au fost deja procesate. Folosiți forceRefresh=true pentru a le regenera.',
         articles: []
       });
     }
 
     // Înregistrează începerea procesului
     console.log(`Începerea generării de articole: ${new Date().toISOString()}`);
-    console.log(`S-au găsit ${articlesToProcess.length} articole noi din RSS pentru procesare`);
+    console.log(`S-au găsit ${articlesToProcess.length} articole ${forceRefresh ? '(cu forțare)' : 'noi'} din RSS pentru procesare`);
 
     // Traducem articolele înainte de a le procesa cu AI
     const translatedArticles = await Promise.all(
@@ -268,7 +354,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.log(`Procesare articol: ${article.title}`);
           
           // Generează un nou articol folosind Groq și modelul Llama
-          const generatedArticle = await generateArticleWithLlama(article);
+          const generatedArticle = await generateArticleWithLlama(article, customDate, enableWebSearch);
           
           console.log(`Articol generat. Nou titlu: ${generatedArticle.title}`);
           
