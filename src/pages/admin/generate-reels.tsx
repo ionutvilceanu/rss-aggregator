@@ -51,9 +51,9 @@ export default function GenerateReels() {
   };
 
   const headerStyle = {
-    backgroundColor: '#0042FF',
-    color: 'white',
     padding: '1rem 0',
+    borderBottom: '1px solid #f0f0f0',
+    marginBottom: '1rem',
   };
 
   const navStyle = {
@@ -69,6 +69,7 @@ export default function GenerateReels() {
     fontSize: '1.5rem',
     fontWeight: 'bold' as const,
     cursor: 'pointer',
+    color: '#333',
   };
 
   const navLinksStyle = {
@@ -77,7 +78,7 @@ export default function GenerateReels() {
   };
 
   const navLinkStyle = {
-    color: 'white',
+    color: '#333',
     textDecoration: 'none',
   };
 
@@ -408,7 +409,14 @@ Acest lucru se poate întâmpla din următoarele motive:
 
       <header style={headerStyle}>
         <nav style={navStyle}>
-          <div style={logoStyle}>Panou Administrare</div>
+          <div style={logoStyle}>
+            <Link href="/admin" style={{ textDecoration: 'none', color: '#333' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img src="/logo.svg" alt="AiSport Logo" style={{ height: '30px', width: 'auto' }} />
+                <span>Panou Administrare</span>
+              </div>
+            </Link>
+          </div>
           <div style={navLinksStyle}>
             <Link href="/" style={navLinkStyle}>
               Acasă

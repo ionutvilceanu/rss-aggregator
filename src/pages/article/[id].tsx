@@ -192,17 +192,13 @@ export default function ArticlePage() {
 
   // Stiluri pentru layout și componente
   const headerStyle = {
-    backgroundColor: '#0042FF', // Albastru similar cu golazo.ro
-    color: 'white',
     padding: '1rem',
     marginBottom: '1rem',
+    borderBottom: '1px solid #f0f0f0',
   };
 
   const logoStyle = {
-    fontSize: '1.5rem',
-    fontWeight: 'bold' as const,
-    color: 'white',
-    display: 'inline-block',
+    cursor: 'pointer',
   };
 
   const navStyle = {
@@ -219,8 +215,9 @@ export default function ArticlePage() {
   };
 
   const navLinkStyle = {
-    color: 'white',
+    color: '#333',
     textDecoration: 'none',
+    fontWeight: 'medium',
   };
 
   const containerStyle = {
@@ -336,11 +333,13 @@ export default function ArticlePage() {
         <style>{blockquoteStyle}</style>
       </Head>
 
-      {/* Header similar cu golazo.ro */}
+      {/* Header cu design minimalist */}
       <header style={headerStyle}>
         <nav style={navStyle}>
           <Link href="/">
-            <div style={logoStyle}>AiSport</div>
+            <div style={logoStyle}>
+              <img src="/logo.svg" alt="AiSport Logo" style={{ height: '40px', width: 'auto' }} />
+            </div>
           </Link>
           <div style={navLinksStyle}>
             <Link href="/" style={navLinkStyle}>

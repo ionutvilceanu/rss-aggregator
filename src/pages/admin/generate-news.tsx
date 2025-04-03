@@ -51,15 +51,25 @@ export default function GenerateNews() {
       </Head>
 
       <header className="mb-8">
+        <div className="border-b border-gray-200 pb-4 mb-4">
+          <div className="container mx-auto flex justify-between items-center">
+            <Link href="/admin">
+              <div className="flex items-center gap-2">
+                <img src="/logo.svg" alt="AiSport Logo" className="h-8 w-auto" />
+                <span className="text-xl font-bold">Panou Administrare</span>
+              </div>
+            </Link>
+            <div className="flex gap-4">
+              <Link href="/admin" className="text-gray-700 hover:text-blue-600">
+                &larr; Înapoi la Admin
+              </Link>
+              <Link href="/" className="text-gray-700 hover:text-blue-600">
+                Pagina principală
+              </Link>
+            </div>
+          </div>
+        </div>
         <h1 className="text-3xl font-bold mb-4">Generare Știri cu AI</h1>
-        <nav className="mb-6">
-          <Link href="/admin" className="text-blue-500 hover:text-blue-700 mr-4">
-            &larr; Înapoi la Admin
-          </Link>
-          <Link href="/" className="text-blue-500 hover:text-blue-700">
-            Pagina principală
-          </Link>
-        </nav>
       </header>
 
       <main>

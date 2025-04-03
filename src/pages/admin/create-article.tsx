@@ -150,9 +150,9 @@ export default function CreateArticle() {
 
   // Stiluri pentru pagină
   const headerStyle = {
-    backgroundColor: '#0042FF',
-    color: 'white',
     padding: '1rem 0',
+    borderBottom: '1px solid #f0f0f0',
+    marginBottom: '1rem',
   };
 
   const navStyle = {
@@ -165,8 +165,6 @@ export default function CreateArticle() {
   };
 
   const logoStyle = {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
     cursor: 'pointer',
   };
 
@@ -176,7 +174,7 @@ export default function CreateArticle() {
   };
 
   const navLinkStyle = {
-    color: 'white',
+    color: '#333',
     textDecoration: 'none',
   };
 
@@ -257,11 +255,13 @@ export default function CreateArticle() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
 
-      {/* Header similar cu golazo.ro */}
+      {/* Header cu design minimalist */}
       <header style={headerStyle}>
         <nav style={navStyle}>
           <Link href="/">
-            <div style={logoStyle}>AiSport</div>
+            <div style={logoStyle}>
+              <img src="/logo.svg" alt="AiSport Logo" style={{ height: '40px', width: 'auto' }} />
+            </div>
           </Link>
           <div style={navLinksStyle}>
             <Link href="/" style={navLinkStyle}>

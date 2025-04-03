@@ -116,6 +116,30 @@ export default function Home() {
     marginBottom: '20px',
   };
 
+  const headerStyle = {
+    padding: '1rem 0',
+    borderBottom: '1px solid #f0f0f0',
+    marginBottom: '2rem',
+  };
+
+  const navStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '0 1rem',
+  };
+
+  const logoStyle = {
+    cursor: 'pointer',
+  };
+
+  const navLinksStyle = {
+    display: 'flex',
+    gap: '1.5rem',
+  };
+
   return (
     <div>
       <Head>
@@ -128,16 +152,25 @@ export default function Home() {
       </Head>
 
       <main style={containerStyle}>
-        <h1 style={titleStyle}>AiSport</h1>
-        
-        {isAdmin && (
-          <div style={{ marginBottom: '20px' }}>
-            <Link href="/admin" style={adminLinkStyle}>
-              Panou Administrare
+        <header style={headerStyle}>
+          <nav style={navStyle}>
+            <Link href="/">
+              <div style={logoStyle}>
+                <img src="/logo.svg" alt="AiSport Logo" style={{ height: '40px', width: 'auto' }} />
+              </div>
             </Link>
-          </div>
-        )}
-
+            <div style={navLinksStyle}>
+              {isAdmin && (
+                <div style={{ marginBottom: '20px' }}>
+                  <Link href="/admin" style={adminLinkStyle}>
+                    Panou Administrare
+                  </Link>
+                </div>
+              )}
+            </div>
+          </nav>
+        </header>
+        
         {loading ? (
           <div style={{ textAlign: 'center', padding: '20px' }}>
             Se încarcă știrile...

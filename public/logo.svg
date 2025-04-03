@@ -1,0 +1,62 @@
+<!-- aisport-logo.svg -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="220"
+  height="60"
+  viewBox="0 0 220 60"
+>
+  <!-- Definim un gradient pentru cerc -->
+  <defs>
+    <linearGradient id="gradientAI" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0072ff" />
+      <stop offset="100%" stop-color="#00c6ff" />
+    </linearGradient>
+  </defs>
+
+  <!-- Cercul cu un mic circuit în interior (sugerează AI) -->
+  <g transform="translate(30,30)">
+    <!-- Cercul exterior -->
+    <circle
+      r="20"
+      fill="url(#gradientAI)"
+      stroke="#333"
+      stroke-width="1"
+    />
+    <!-- Câteva linii stilizate în interior (circuit AI) -->
+    <line
+      x1="-10"
+      y1="0"
+      x2="10"
+      y2="0"
+      stroke="#fff"
+      stroke-width="2"
+      stroke-linecap="round"
+    />
+    <line
+      x1="0"
+      y1="-10"
+      x2="0"
+      y2="10"
+      stroke="#fff"
+      stroke-width="2"
+      stroke-linecap="round"
+    />
+    <circle cx="-10" cy="0" r="2" fill="#fff" />
+    <circle cx="0" cy="-10" r="2" fill="#fff" />
+    <circle cx="0" cy="10" r="2" fill="#fff" />
+    <circle cx="10" cy="0" r="2" fill="#fff" />
+  </g>
+
+  <!-- Textul "AiSport" -->
+  <text
+    x="60"
+    y="36"
+    fill="#333"
+    font-size="24"
+    font-weight="600"
+    font-family="sans-serif"
+  >
+    Ai
+    <tspan fill="#0072ff">Sport</tspan>
+  </text>
+</svg>
