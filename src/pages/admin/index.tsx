@@ -104,6 +104,26 @@ export default function AdminPage() {
     }
   };
 
+  const handleLogout = async () => {
+    if (confirm('Ești sigur că vrei să te deloghezi?')) {
+      try {
+        const response = await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (response.ok) {
+          // Redirecționează către pagina de login după delogare
+          router.push('/login');
+        }
+      } catch (err) {
+        console.error('Eroare la delogare:', err);
+      }
+    }
+  };
+
   // Stiluri pentru pagină
   const containerStyle = {
     maxWidth: '1200px',
@@ -200,19 +220,31 @@ export default function AdminPage() {
 
       <header style={headerStyle}>
         <nav style={navStyle}>
-          <Link href="/">
-            <div style={logoStyle}>NewsWeek</div>
-          </Link>
+          <div style={logoStyle}>Panou Administrare</div>
           <div style={navLinksStyle}>
             <Link href="/" style={navLinkStyle}>
               Acasă
             </Link>
             <Link href="/admin/create-article" style={navLinkStyle}>
-              Creare Articol
+              Creare articol
             </Link>
             <Link href="/admin/generate-news" style={navLinkStyle}>
-              Generare Știri AI
+              Generare știri
             </Link>
+            <button 
+              onClick={handleLogout} 
+              style={{
+                ...navLinkStyle, 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                backgroundColor: '#e53e3e'
+              }}
+            >
+              Delogare
+            </button>
           </div>
         </nav>
       </header>

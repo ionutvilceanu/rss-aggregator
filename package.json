@@ -11,6 +11,8 @@
   "dependencies": {
     "@types/formidable": "^3.4.5",
     "axios": "^1.8.4",
+    "cookie": "^1.0.2",
+    "cookies-next": "^5.1.0",
     "formidable": "^3.5.2",
     "next": "15.2.3",
     "pg": "^8.14.1",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/cookie": "^0.6.0",
     "@types/node": "^20",
     "@types/pg": "^8.11.11",
     "@types/react": "^19",

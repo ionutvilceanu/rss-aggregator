@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState, useCallback } from 'react';
 import NewsItem from '../components/NewsItem';
 import Link from 'next/link';
+import { getCookie } from 'cookies-next';
 
 interface Article {
   id?: number;
@@ -24,6 +25,13 @@ export default function Home() {
   const [pagination, setPagination] = useState<PaginationInfo>({ total: 0, page: 1, limit: 15, pages: 0 });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Verifică dacă utilizatorul este admin
+  useEffect(() => {
+    const authToken = getCookie('auth-token');
+    setIsAdmin(authToken === 'admin-session-token');
+  }, []);
 
   // Fetch articole pentru pagina curentă, cu useCallback pentru a preveni regenerarea la fiecare render
   const fetchArticles = useCallback(async (page: number = 1) => {
@@ -98,6 +106,16 @@ export default function Home() {
     cursor: 'pointer',
   };
 
+  const adminLinkStyle = {
+    display: 'inline-block',
+    padding: '8px 16px',
+    backgroundColor: '#0070f3',
+    color: 'white',
+    textDecoration: 'none',
+    borderRadius: '4px',
+    marginBottom: '20px',
+  };
+
   return (
     <div>
       <Head>
@@ -112,11 +130,13 @@ export default function Home() {
       <main style={containerStyle}>
         <h1 style={titleStyle}>NewsWeek</h1>
         
-        <div style={{ marginBottom: '20px' }}>
-          <Link href="/admin" style={{ color: '#0070f3', textDecoration: 'underline' }}>
-            Administrare
-          </Link>
-        </div>
+        {isAdmin && (
+          <div style={{ marginBottom: '20px' }}>
+            <Link href="/admin" style={adminLinkStyle}>
+              Panou Administrare
+            </Link>
+          </div>
+        )}
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '20px' }}>
