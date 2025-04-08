@@ -55,6 +55,35 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
+          },
+        ],
+      },
+    ];
+  },
+  // Configurăm optimizarea pentru a permite fișierele mp4 în directorul public/tmp
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.(mp4)$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/chunks/[path][name].[hash][ext]'
+      },
+    });
+
+    return config;
+  }
 }
 
 module.exports = nextConfig 

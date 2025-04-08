@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
+import Cookies from 'js-cookie';
 
 interface Article {
   id: number;
   title: string;
-  content: string;
-  image_url?: string;
-  source_url?: string;
   pub_date: string;
-  is_manual?: boolean;
+  image: string;
+  content: string;
+  source?: string;
 }
 
 // Funcție utilitară pentru curățarea titlurilor
@@ -32,14 +32,66 @@ function cleanTitle(title: string): string {
   return cleanedTitle.trim();
 }
 
+const ArticleCard = ({ article, onSelect, isSelected }: { article: Article; onSelect: () => void; isSelected: boolean }) => {
+  const [imageError, setImageError] = useState(false);
+
+  // Funcție pentru curățarea titlurilor articolelor
+  const cleanTitle = (title: string) => {
+    return title.replace(/^\*\*/, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim();
+  };
+
+  // Determină sursa imaginii bazată pe URL
+  let imgSrc = article.image;
+  
+  // Dacă imaginea este URL extern, folosește proxy-ul
+  if (imgSrc && (imgSrc.startsWith('http://') || imgSrc.startsWith('https://'))) {
+    imgSrc = `/api/proxy-image?url=${encodeURIComponent(imgSrc)}`;
+  }
+
+  return (
+    <div 
+      className={`border rounded-lg p-4 cursor-pointer transition-all ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
+      onClick={onSelect}
+    >
+      <div className="flex flex-col h-full">
+        <h3 className="text-lg font-semibold mb-2">{cleanTitle(article.title)}</h3>
+        <p className="text-sm text-gray-500 mb-2">{new Date(article.pub_date).toLocaleDateString('ro-RO')}</p>
+        
+        {article.source && <p className="text-xs text-gray-400 mb-2">Sursa: {article.source}</p>}
+        
+        {imgSrc && !imageError && (
+          <div className="relative h-32 mt-auto overflow-hidden rounded">
+            <img 
+              src={imgSrc} 
+              alt={article.title}
+              className="object-cover w-full h-full"
+              onError={() => setImageError(true)}
+            />
+          </div>
+        )}
+        
+        {imageError && (
+          <div className="relative h-32 mt-auto bg-gray-100 flex items-center justify-center rounded">
+            <p className="text-sm text-gray-500">Imagine indisponibilă</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function GenerateReels() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [reelImage, setReelImage] = useState<string | null>(null);
+  const [reelVideo, setReelVideo] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [processingVideo, setProcessingVideo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState(5);
+  const [videoEffect, setVideoEffect] = useState('fade');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
 
@@ -157,25 +209,22 @@ export default function GenerateReels() {
         console.log('Număr total articole:', data.articles.length);
         
         // Filtrează articolele pentru reel
-        // Pentru imagini, folosim fie image_url (dacă există), fie imaginea implicită pentru articolele manuale
+        // Pentru imagini, folosim fie image (dacă există), fie imaginea implicită pentru articolele manuale
         const articlesForReels = data.articles.map((article: Article) => {
           // Curățăm titlul
           article.title = cleanTitle(article.title);
           
           // Adăugăm o imagine implicită pentru articolele fără imagine
-          if (!article.image_url || article.image_url.trim() === '') {
-            if (article.is_manual) {
-              // Pentru articolele manuale, folosim o imagine implicită
-              article.image_url = 'https://via.placeholder.com/1080x1920/0042FF/FFFFFF?text=AiSport';
-            } else if (article.source_url && article.source_url.includes('digisport')) {
+          if (!article.image || article.image.trim() === '') {
+            if (article.source && article.source.includes('digisport')) {
               // Pentru DigiSport, încercăm să folosim imaginea lor dacă este disponibilă
-              article.image_url = 'https://s.iw.ro/gateway/g/ZmlsZVNvdXJjZT1odHRwJTNBJTJGJTJG/c3RvcmFnZTA3dHJhbnNjb2Rlci5yY3Mt/cmRzLnJvJTJGc3RvcmFnZSUyRjIwMjIl/MkYwNyUyRjA3JTJGMTUxNzE5MV8xNTE3/MTkxX2RpZ2lzcG9ydC1nb2xhLWxvZ28t/Z2VuZXJpYy0xOTIweDEwODAuanBn/Jm1heF93aWR0aD0xMjgw/digisport-gola-logo-generic-1920x1080.jpg';
-            } else if (article.source_url && article.source_url.includes('gazzetta')) {
+              article.image = 'https://s.iw.ro/gateway/g/ZmlsZVNvdXJjZT1odHRwJTNBJTJGJTJG/c3RvcmFnZTA3dHJhbnNjb2Rlci5yY3Mt/cmRzLnJvJTJGc3RvcmFnZSUyRjIwMjIl/MkYwNyUyRjA3JTJGMTUxNzE5MV8xNTE3/MTkxX2RpZ2lzcG9ydC1nb2xhLWxvZ28t/Z2VuZXJpYy0xOTIweDEwODAuanBn/Jm1heF93aWR0aD0xMjgw/digisport-gola-logo-generic-1920x1080.jpg';
+            } else if (article.source && article.source.includes('gazzetta')) {
               // Pentru Gazzetta
-              article.image_url = 'https://via.placeholder.com/1080x1920/00CCBB/FFFFFF?text=Gazzetta+Sport';
+              article.image = 'https://via.placeholder.com/1080x1920/00CCBB/FFFFFF?text=Gazzetta+Sport';
             } else {
               // Pentru alte surse
-              article.image_url = 'https://via.placeholder.com/1080x1920/FF4400/FFFFFF?text=Sport+News';
+              article.image = 'https://via.placeholder.com/1080x1920/FF4400/FFFFFF?text=Sport+News';
             }
           }
           return article;
@@ -196,6 +245,244 @@ export default function GenerateReels() {
     fetchArticles();
   }, []);
 
+  // Funcție pentru a crea un reel simplu colorat când toate imaginile eșuează
+  const createSimpleColorReel = (canvas: HTMLCanvasElement | null, article: Article | null, customText: string) => {
+    if (!canvas) {
+      setError('Eroare internă: canvas-ul nu este disponibil');
+      setGenerating(false);
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setError('Eroare internă: contextul canvas-ului nu este disponibil');
+      setGenerating(false);
+      return;
+    }
+
+    // Dimensiunile reelului
+    const width = 1080;
+    const height = 1920;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Gradient complex pentru fundal
+    const gradient = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, width);
+    gradient.addColorStop(0, '#0042FF');
+    gradient.addColorStop(1, '#001C6D');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // Adaugă text
+    const text = customText || (article ? article.title : 'AiSport News');
+    
+    // Font mai modern și profesional
+    ctx.font = 'bold 72px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFFFFF';
+    
+    // Adaugă umbră pentru text pentru lizibilitate mai bună
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    // Împarte textul în linii pentru a se potrivi pe canvas
+    const wrapText = (text: string, maxWidth: number) => {
+      const words = text.split(' ');
+      const lines = [];
+      let currentLine = words[0];
+
+      for (let i = 1; i < words.length; i++) {
+        const word = words[i];
+        const width = ctx.measureText(currentLine + ' ' + word).width;
+        if (width < maxWidth) {
+          currentLine += ' ' + word;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      lines.push(currentLine);
+      return lines;
+    };
+
+    const lines = wrapText(text, width - 100);
+    const lineHeight = 85;
+    const totalTextHeight = lines.length * lineHeight;
+    
+    // Poziționează textul în centrul canvas-ului
+    let y = (height - totalTextHeight) / 2;
+    lines.forEach(line => {
+      ctx.fillText(line, width / 2, y);
+      y += lineHeight;
+    });
+
+    // Logo AiSport
+    ctx.font = 'bold 48px Arial, sans-serif';
+    ctx.fillText('AiSport', width / 2, height - 100);
+    
+    // Adaugă un banner decorativ la partea de sus
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillRect(0, 80, width, 10);
+    
+    // Adaugă un banner decorativ la partea de jos
+    ctx.fillRect(0, height - 150, width, 10);
+
+    // Sursă articol
+    if (article && article.source) {
+      ctx.font = '32px Arial, sans-serif';
+      ctx.fillText('Sursa: ' + article.source, width / 2, height - 60);
+    }
+
+    // Transformă canvas în URL de imagine
+    const reelImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+    setReelImage(reelImageUrl);
+    setGenerating(false);
+  };
+
+  // Procesează imaginea pentru a crea reel-ul
+  const procesareReelCuImagine = (defaultImg: HTMLImageElement) => {
+    try {
+      // Setăm canvas-ul
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        setError('Eroare internă: canvas-ul nu este disponibil');
+        setGenerating(false);
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setError('Eroare internă: contextul canvas-ului nu este disponibil');
+        setGenerating(false);
+        return;
+      }
+
+      // Dimensiunile reelului (raport 9:16 ca pe TikTok)
+      const width = 1080;
+      const height = 1920;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Calculează dimensiunile pentru a acoperi întregul canvas
+      // păstrând raportul de aspect
+      const imgRatio = defaultImg.width / defaultImg.height;
+      const canvasRatio = width / height;
+      
+      let renderWidth, renderHeight, offsetX, offsetY;
+      
+      if (imgRatio > canvasRatio) {
+        // Imaginea e mai lată decât canvas-ul
+        renderHeight = height;
+        renderWidth = height * imgRatio;
+        offsetX = (width - renderWidth) / 2;
+        offsetY = 0;
+      } else {
+        // Imaginea e mai înaltă decât canvas-ul
+        renderWidth = width;
+        renderHeight = width / imgRatio;
+        offsetX = 0;
+        offsetY = (height - renderHeight) / 2;
+      }
+
+      // Umple background-ul cu negru
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, width, height);
+      
+      try {
+        ctx.drawImage(defaultImg, offsetX, offsetY, renderWidth, renderHeight);
+        
+        // Adaugă un gradient overlay pentru design mai profesional
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.5)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        
+        // Adaugă și un mic overlay color brand
+        ctx.fillStyle = 'rgba(0, 66, 255, 0.3)'; // Albastru brand subtil
+        ctx.fillRect(0, 0, width, height);
+        
+        // Adaugă un banner decorativ la partea de sus
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillRect(0, 80, width, 10);
+        
+        // Adaugă un banner decorativ la partea de jos
+        ctx.fillRect(0, height - 150, width, 10);
+        
+        // Adaugă textul articolului
+        const text = customText || (selectedArticle ? selectedArticle.title : 'AiSport News');
+        
+        // Font modern și profesional
+        ctx.font = 'bold 72px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        
+        // Adaugă umbră pentru text pentru lizibilitate mai bună pe fundal de imagine
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+
+        // Împarte textul în linii pentru a se potrivi pe canvas
+        const wrapText = (text: string, maxWidth: number) => {
+          const words = text.split(' ');
+          const lines = [];
+          let currentLine = words[0];
+
+          for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const width = ctx.measureText(currentLine + ' ' + word).width;
+            if (width < maxWidth) {
+              currentLine += ' ' + word;
+            } else {
+              lines.push(currentLine);
+              currentLine = word;
+            }
+          }
+          lines.push(currentLine);
+          return lines;
+        };
+
+        const lines = wrapText(text, width - 100);
+        const lineHeight = 85;
+        const totalTextHeight = lines.length * lineHeight;
+        
+        // Poziționează textul în centrul canvas-ului
+        let y = (height - totalTextHeight) / 2;
+        lines.forEach(line => {
+          ctx.fillText(line, width / 2, y);
+          y += lineHeight;
+        });
+
+        // Logo AiSport
+        ctx.font = 'bold 48px Arial, sans-serif';
+        ctx.fillText('AiSport', width / 2, height - 100);
+        
+        // Sursă articol dacă există
+        if (selectedArticle && selectedArticle.source) {
+          ctx.font = '32px Arial, sans-serif';
+          ctx.fillText('Sursa: ' + selectedArticle.source, width / 2, height - 60);
+        }
+
+        // Transformă canvas în URL de imagine
+        const reelImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+        setReelImage(reelImageUrl);
+        setGenerating(false);
+      } catch (error) {
+        console.error('Eroare la desenarea imaginii pe canvas:', error);
+        // Dacă desenarea imaginii eșuează, folosim un fundal colorat simplu
+        createSimpleColorReel(canvas, selectedArticle, customText || '');
+      }
+    } catch (error) {
+      console.error('Eroare la procesarea imaginii:', error);
+      setError('Eroare la procesarea imaginii. Vă rugăm încercați cu alt articol.');
+      setGenerating(false);
+    }
+  };
+
   // Generează un reel pentru articolul selectat
   const generateReel = async () => {
     if (!selectedArticle) {
@@ -203,7 +490,7 @@ export default function GenerateReels() {
       return;
     }
 
-    if (!selectedArticle.image_url) {
+    if (!selectedArticle.image) {
       setError('Articolul selectat nu are o imagine asociată. Alege alt articol sau contactează administratorul.');
       return;
     }
@@ -213,15 +500,15 @@ export default function GenerateReels() {
     
     // Afișăm un mesaj în consolă pentru debugging
     console.log('Se începe generarea reelului pentru articolul:', cleanTitle(selectedArticle.title));
-    console.log('URL imagine original:', selectedArticle.image_url);
+    console.log('URL imagine original:', selectedArticle.image);
 
     try {
       // Încarcă imaginea
-      const img = document.createElement('img') as HTMLImageElement;
+      const img = new window.Image();
       img.crossOrigin = 'anonymous'; // Încercăm să permitem CORS, dar nu va funcționa pentru toate imaginile
       
       // Detectăm dacă e un URL extern sau unul generat intern
-      let imageUrl = selectedArticle.image_url;
+      let imageUrl = selectedArticle.image;
       
       // Verificăm dacă URL-ul imaginii este de la un provider extern și folosim proxy-ul nostru
       if (imageUrl && (imageUrl.includes('http://') || imageUrl.includes('https://'))) {
@@ -246,145 +533,58 @@ export default function GenerateReels() {
       // Definim handler-ul pentru încărcarea cu succes a imaginii
       img.onload = () => {
         console.log('Imagine încărcată cu succes, dimensiuni:', img.width, 'x', img.height);
-        
-        // Configurează canvas-ul pentru reel
-        const canvas = canvasRef.current;
-        if (!canvas) {
-          setError('Eroare internă: canvas-ul nu este disponibil');
-          setGenerating(false);
-          return;
-        }
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          setError('Eroare internă: contextul canvas-ului nu este disponibil');
-          setGenerating(false);
-          return;
-        }
-
-        // Dimensiunile reelului (raport 9:16 ca pe TikTok)
-        const width = 1080;
-        const height = 1920;
-        canvas.width = width;
-        canvas.height = height;
-
-        // Calculează dimensiunile imaginii pentru a acoperi întregul canvas,
-        // păstrând raportul de aspect
-        const imgRatio = img.width / img.height;
-        const canvasRatio = width / height;
-        
-        let renderWidth, renderHeight, offsetX, offsetY;
-        
-        if (imgRatio > canvasRatio) {
-          // Imaginea e mai lată decât canvas-ul
-          renderHeight = height;
-          renderWidth = height * imgRatio;
-          offsetX = (width - renderWidth) / 2;
-          offsetY = 0;
-        } else {
-          // Imaginea e mai înaltă decât canvas-ul
-          renderWidth = width;
-          renderHeight = width / imgRatio;
-          offsetX = 0;
-          offsetY = (height - renderHeight) / 2;
-        }
-
-        // Umple background-ul cu negru
-        ctx.fillStyle = 'black';
-        ctx.fillRect(0, 0, width, height);
-
-        // Desenează imaginea
-        try {
-          ctx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
-        } catch (err) {
-          console.error('Eroare la desenarea imaginii în canvas:', err);
-          setError('Eroare la procesarea imaginii. Vă rugăm încercați cu alt articol sau contactați administratorul.');
-          setGenerating(false);
-          return;
-        }
-
-        // Adaugă un overlay semi-transparent
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(0, 0, width, height);
-
-        // Pregătește textul
-        const rawText = customText || selectedArticle.title;
-        const text = cleanTitle(rawText);
-        
-        // Stilizează și poziționează textul
-        ctx.fillStyle = 'white';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        // Font mare pentru textul principal
-        ctx.font = 'bold 80px Arial';
-        
-        // Împarte textul în linii pentru a se încadra în lățimea canvas-ului
-        const maxLineWidth = width * 0.8;
-        const words = text.split(' ');
-        const lines = [];
-        let currentLine = '';
-        
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const metrics = ctx.measureText(testLine);
-          
-          if (metrics.width > maxLineWidth) {
-            lines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        }
-        
-        if (currentLine) {
-          lines.push(currentLine);
-        }
-        
-        // Desenează liniile de text
-        const lineHeight = 100;
-        const totalTextHeight = lines.length * lineHeight;
-        let textY = (height - totalTextHeight) / 2;
-        
-        lines.forEach(line => {
-          ctx.fillText(line, width / 2, textY);
-          textY += lineHeight;
-        });
-        
-        // Adaugă logo-ul sau marca de apă
-        ctx.font = '40px Arial';
-        ctx.fillText('AiSport', width / 2, height - 100);
-        
-        // Convertește canvas-ul în URL de imagine
-        try {
-          setReelImage(canvas.toDataURL('image/jpeg', 0.9));
-        } catch (err) {
-          console.error('Eroare la convertirea canvas-ului în imagine:', err);
-          setError('Eroare la generarea imaginii finale. Probabil imaginea originală nu poate fi procesată din cauza restricțiilor CORS.');
-          setGenerating(false);
-          return;
-        }
-        
-        setGenerating(false);
+        procesareReelCuImagine(img);
       };
 
       // Definim handler-ul pentru erori de încărcare
       img.onerror = () => {
         console.error('Eroare la încărcarea imaginii:', imageUrl);
-        setError(`Eroare la încărcarea imaginii pentru articolul: ${cleanTitle(selectedArticle.title)}
+        console.log('Se încearcă utilizarea unei imagini default de calitate...');
 
-Acest lucru se poate întâmpla din următoarele motive:
-1. URL-ul imaginii nu mai este valid
-2. Site-ul sursei nu permite accesul la imagine
-3. Imaginea are restricții CORS
+        // În loc să afișăm eroare, vom folosi o imagine default de sport de înaltă calitate
+        const sportImages = [
+          '/images/sport/football.jpg',
+          '/images/sport/basketball.jpg',
+          '/images/sport/tennis.jpg',
+          '/images/sport/swimming.jpg',
+          '/images/sport/athletics.jpg',
+          '/images/sport/default_sport.jpg'
+        ];
 
-Încearcă alt articol sau contactează administratorul.`);
-        setGenerating(false);
+        // Folosește un index aleatoriu pentru a selecta o imagine random din array
+        const randomIndex = Math.floor(Math.random() * sportImages.length);
+        const fallbackImagePath = sportImages[randomIndex];
+
+        // Verifică dacă imaginea aleatorie există, dacă nu, folosește o imagine placeholder
+        const fallbackImg = new window.Image();
+        fallbackImg.crossOrigin = 'anonymous';
+        fallbackImg.src = fallbackImagePath;
+
+        fallbackImg.onload = () => {
+          // Dacă imaginea aleatorie de sport s-a încărcat cu succes, o folosim
+          procesareReelCuImagine(fallbackImg);
+        };
+
+        fallbackImg.onerror = () => {
+          // Dacă și imaginea de sport eșuează, folosim un placeholder din serviciul extern
+          const placeholderImg = new window.Image();
+          placeholderImg.crossOrigin = 'anonymous';
+          placeholderImg.src = `https://source.unsplash.com/1080x1920/?sport,${selectedArticle?.title.split(' ')[0] || 'sports'}`;
+          
+          placeholderImg.onload = () => {
+            // Dacă imaginea de la Unsplash s-a încărcat cu succes, o folosim
+            procesareReelCuImagine(placeholderImg);
+          };
+          
+          placeholderImg.onerror = () => {
+            // Dacă chiar și imaginea de la Unsplash eșuează, folosim fundal simplu colorat
+            createSimpleColorReel(canvasRef.current, selectedArticle, customText || '');
+          };
+        };
       };
-
-    } catch (err) {
-      console.error('Eroare la generarea reel-ului:', err);
-      setError('Eroare la generarea reel-ului. Încearcă din nou.');
+    } catch (error) {
+      console.error('Eroare la încărcarea imaginii:', error);
+      setError(`Eroare la încărcarea imaginii: ${error}`);
       setGenerating(false);
     }
   };
@@ -395,6 +595,70 @@ Acest lucru se poate întâmpla din următoarele motive:
     const link = document.createElement('a');
     link.href = reelImage;
     link.download = `reel-${selectedArticle?.id || 'newsweek'}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Funcție pentru generarea videoclipului TikTok folosind API-ul server
+  const generateVideo = async () => {
+    if (!reelImage) {
+      setError('Generează mai întâi imaginea pentru reel');
+      return;
+    }
+
+    setProcessingVideo(true);
+    setError(null);
+
+    try {
+      // În loc să folosim FFmpeg.wasm în browser, apelăm API-ul nostru
+      const response = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: reelImage,
+          effect: videoEffect,
+          duration: videoDuration
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Eroare la generarea video');
+      }
+
+      // Setăm URL-ul video returnat de server
+      setReelVideo(data.videoUrl);
+      
+    } catch (error) {
+      console.error('Eroare la generarea videoclipului:', error);
+      setError(`Eroare la generarea videoclipului: ${error}`);
+    } finally {
+      setProcessingVideo(false);
+    }
+  };
+
+  // Funcție pentru descărcarea videoclipului
+  const handleVideoDownload = () => {
+    if (!reelVideo) return;
+    
+    // Creem un element anchor pentru a declanșa descărcarea
+    const link = document.createElement('a');
+    
+    // Verificăm dacă URL-ul este un blob URL sau o cale către server
+    if (reelVideo.startsWith('blob:')) {
+      // Dacă e un blob URL (versiunea veche), îl folosim direct
+      link.href = reelVideo;
+    } else {
+      // Dacă e o cale către server, folosim URL-ul complet
+      link.href = reelVideo;
+    }
+    
+    // Setăm numele fișierului
+    link.download = `tiktok-reel-${selectedArticle?.id || 'newsweek'}.mp4`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -504,44 +768,16 @@ Acest lucru se poate întâmpla din următoarele motive:
                   </div>
                 ) : (
                   articles.map(article => (
-                    <div 
+                    <ArticleCard 
                       key={article.id}
-                      style={selectedArticle?.id === article.id ? selectedArticleCardStyle : articleCardStyle}
-                      onClick={() => {
+                      article={article}
+                      onSelect={() => {
                         setSelectedArticle(article);
                         setCustomText(cleanTitle(article.title)); // Precompletează textul custom cu titlul curat
                         setReelImage(null); // Resetează imaginea reel-ului când se schimbă articolul
                       }}
-                    >
-                      <h3>{cleanTitle(article.title)}</h3>
-                      <p style={{ fontSize: '14px', color: '#666' }}>
-                        {new Date(article.pub_date).toLocaleDateString('ro-RO')}
-                      </p>
-                      {article.image_url && (
-                        <div style={{ marginTop: '10px' }}>
-                          <div style={{ position: 'relative', width: '100%', height: '100px', overflow: 'hidden', borderRadius: '4px' }}>
-                            <img 
-                              src={article.image_url.includes('http') 
-                                ? `/api/proxy-image?url=${encodeURIComponent(article.image_url)}` 
-                                : article.image_url}
-                              alt={article.title}
-                              style={{ 
-                                width: '100%', 
-                                height: '100px',
-                                objectFit: 'cover',
-                                objectPosition: 'center'
-                              }}
-                              onError={(e) => {
-                                // Înlocuiește imaginea cu un placeholder în caz de eroare
-                                const target = e.target as HTMLImageElement;
-                                target.onerror = null; // Previne bucle infinite
-                                target.src = `https://via.placeholder.com/300x100/0042FF/FFFFFF?text=${encodeURIComponent('AiSport - Imagine lipsă')}`;
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      isSelected={selectedArticle?.id === article.id}
+                    />
                   ))
                 )}
               </div>
@@ -562,71 +798,212 @@ Acest lucru se poate întâmpla din următoarele motive:
                     id="customText"
                     value={customText}
                     onChange={(e) => setCustomText(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px', 
                       borderRadius: '4px',
-                      border: '1px solid #ddd',
+                      border: '1px solid #ccc',
                       minHeight: '100px',
-                      resize: 'vertical'
+                      resize: 'vertical',
+                      marginBottom: '15px'
                     }}
-                    placeholder="Introdu textul care va apărea pe reel..."
+                    placeholder="Introdu textul personalizat pentru reel sau lasă gol pentru a folosi titlul articolului"
                   />
-                </div>
-                
-                <button 
-                  onClick={generateReel}
-                  style={generating ? disabledButtonStyle : buttonStyle}
-                  disabled={generating}
-                >
-                  {generating ? 'Se generează...' : 'Generează Reel'}
-                </button>
-                
-                {reelImage && (
-                  <div style={{ textAlign: 'center' }}>
-                    <h3>Previzualizare:</h3>
-                    <div style={{ 
-                      maxWidth: '100%', 
-                      maxHeight: '600px',
-                      overflow: 'hidden',
-                      margin: '10px 0',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px'
-                    }}>
-                      <img 
-                        src={reelImage} 
-                        alt="Reel generat" 
-                        style={{ 
-                          maxWidth: '100%',
-                          height: 'auto'
-                        }} 
-                      />
-                    </div>
-                    
-                    <button
-                      onClick={handleDownload}
+                  
+                  <div style={{ marginBottom: '20px' }}>
+                    <button 
+                      onClick={generateReel} 
+                      disabled={generating}
                       style={{
-                        ...buttonStyle,
-                        backgroundColor: '#10b981',
-                        margin: '10px 0'
+                        padding: '10px 20px',
+                        backgroundColor: '#0066ff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: generating ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        width: '100%'
                       }}
                     >
-                      Descarcă Reel
+                      {generating ? 'Generare în curs...' : 'Generează Reel'}
                     </button>
                   </div>
-                )}
+                </div>
+                
+                <div style={{ marginTop: '20px' }}>
+                  <h3>Previzualizare:</h3>
+                  
+                  <div style={{ marginBottom: '20px' }}>
+                    <canvas ref={canvasRef} style={{ display: 'none' }} />
+                    
+                    {reelImage && (
+                      <div style={{ 
+                        textAlign: 'center', 
+                        marginBottom: '20px',
+                        border: '1px solid #ddd',
+                        padding: '10px',
+                        borderRadius: '4px'
+                      }}>
+                        <img 
+                          src={reelImage} 
+                          alt="Previzualizare Reel" 
+                          style={{ 
+                            maxWidth: '100%', 
+                            maxHeight: '500px', 
+                            marginBottom: '10px',
+                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                          }} 
+                        />
+                        
+                        <div style={{ marginTop: '15px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <button 
+                            onClick={handleDownload}
+                            style={{
+                              padding: '8px 15px',
+                              backgroundColor: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            Descarcă Imagine
+                          </button>
+                          
+                          <button 
+                            onClick={generateVideo}
+                            disabled={processingVideo}
+                            style={{
+                              padding: '8px 15px',
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: processingVideo ? 'not-allowed' : 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            {processingVideo ? 'Procesare video...' : 'Generează Video TikTok'}
+                          </button>
+                        </div>
+
+                        {/* Opțiuni video */}
+                        <div style={{ 
+                          marginTop: '20px', 
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '4px',
+                          padding: '15px',
+                          backgroundColor: '#f9fafb' 
+                        }}>
+                          <h4 style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Opțiuni video:</h4>
+                          
+                          <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                              Durată (secunde):
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <input 
+                                type="range" 
+                                min="3" 
+                                max="15" 
+                                value={videoDuration}
+                                onChange={(e) => setVideoDuration(parseInt(e.target.value))}
+                                style={{ flex: 1 }}
+                              />
+                              <span style={{ 
+                                minWidth: '30px', 
+                                textAlign: 'center',
+                                fontWeight: 'bold' 
+                              }}>
+                                {videoDuration}s
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                              Efect:
+                            </label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {['fade', 'zoom', 'slideUp', 'slideRight', 'pulse'].map((effect) => (
+                                <button
+                                  key={effect}
+                                  onClick={() => setVideoEffect(effect)}
+                                  style={{
+                                    padding: '5px 10px',
+                                    backgroundColor: videoEffect === effect ? '#3b82f6' : '#e5e7eb',
+                                    color: videoEffect === effect ? 'white' : '#374151',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                  }}
+                                >
+                                  {effect === 'fade' && 'Estompare'}
+                                  {effect === 'zoom' && 'Zoom'}
+                                  {effect === 'slideUp' && 'Glisare Sus'}
+                                  {effect === 'slideRight' && 'Glisare Dreapta'}
+                                  {effect === 'pulse' && 'Pulsare'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {reelVideo && (
+                      <div style={{ 
+                        textAlign: 'center', 
+                        marginTop: '20px',
+                        border: '1px solid #ddd',
+                        padding: '10px',
+                        borderRadius: '4px',
+                        backgroundColor: '#f9fafb'
+                      }}>
+                        <h4>Video TikTok generat:</h4>
+                        <video 
+                          src={reelVideo} 
+                          controls
+                          autoPlay
+                          loop
+                          style={{ 
+                            maxWidth: '100%', 
+                            maxHeight: '500px',
+                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)'
+                          }}
+                        />
+                        
+                        <div style={{ marginTop: '15px' }}>
+                          <button 
+                            onClick={handleVideoDownload}
+                            style={{
+                              padding: '8px 15px',
+                              backgroundColor: '#6366f1',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            Descarcă Video
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
-              <p>Selectează un articol din lista din stânga pentru a genera un reel.</p>
+              <div style={{ padding: '20px', backgroundColor: '#f9fafb', borderRadius: '4px', border: '1px solid #ddd' }}>
+                <p>Te rugăm să selectezi un articol din lista din stânga pentru a genera un reel.</p>
+              </div>
             )}
           </div>
         </div>
-        
-        {/* Canvas ascuns folosit pentru generarea imaginii */}
-        <canvas 
-          ref={canvasRef} 
-          style={{ display: 'none' }}
-        />
       </main>
     </div>
   );
