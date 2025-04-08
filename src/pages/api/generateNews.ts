@@ -148,8 +148,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       b.pub_date.getTime() - a.pub_date.getTime()
     );
     
-    const latestArticles = sortedArticles.slice(0, 5);
-    console.log(`Ultimele 5 articole selectate pentru procesare.`);
+    const latestArticles = sortedArticles.slice(0, 10);
+    console.log(`Ultimele 10 articole selectate pentru procesare.`);
 
     // Dacă forceRefresh este true, procesăm toate articolele recente fără a verifica duplicatele
     let articlesToProcess = latestArticles;
@@ -342,7 +342,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
             content: prompt
           }
         ],
-        temperature: 0.7,
+        temperature: 0.5,
         max_tokens: 4000
       })
     });
