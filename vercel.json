@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "buildCommand": "next build",
+  "crons": [
+    {
+      "path": "/api/cronGenerateNews?apiKey=secure_cron_key&enableWebSearch=true",
+      "schedule": "0 * * * *"
+    }
+  ]
+} 
