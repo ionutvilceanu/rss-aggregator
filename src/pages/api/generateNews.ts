@@ -196,7 +196,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generatedArticles = await Promise.all(
       translatedArticles.map(async (article) => {
         try {
-          // Generează un nou articol folosind Groq și modelul Llama
+          // Generează un nou articol folosind API-ul OpenRouter cu modelul DeepSeek
           const generatedArticle = await generateArticleWithLlama(article, customDate, enableWebSearch);
           
           // Salvează noul articol în baza de date
@@ -234,7 +234,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Funcție pentru a genera un nou articol folosind API-ul Groq și modelul Llama
+// Funcție pentru a genera un nou articol folosind API-ul OpenRouter cu modelul DeepSeek
 async function generateArticleWithLlama(
   article: Article, 
   customDate: Date | null = null,
@@ -299,7 +299,7 @@ Context temporal: ${temporalContext}
 Sursa originală: ${sourceDomain}
 URL sursă: ${article.source_url}
 
-${webSearchResults ? `INFORMAȚII ACTUALE DIN CĂUTARE WEB (3 APRILIE 2025):\n${webSearchResults}\n` : ''}
+${webSearchResults ? `INFORMAȚII ACTUALE DIN CĂUTARE WEB (${formattedDate}):\n${webSearchResults}\n` : ''}
 
 INSTRUCȚIUNI IMPORTANTE:
 1. Această știre este RECENTĂ - tratează informațiile ca fiind de ACTUALITATE
@@ -318,39 +318,42 @@ Răspunsul tău trebuie să conțină:
 TITLU: [Titlu captivant care subliniază actualitatea știrii]
 CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
-    // Verifică dacă există o cheie API configurată
-    const apiKey = process.env.GROQ_API_KEY || 'GROQ_API_KEY';
-    console.log("Folosim cheia API (primele 10 caractere): " + apiKey.substring(0, 10) + "...");
+    // API key pentru OpenRouter cu modelul DeepSeek
+    const apiKey = process.env.OPENROUTER_API_KEY || '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';
     
-    // Facem cererea către Groq API
-    console.log("Începem cererea către Groq API...");
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    console.log("Folosim OpenRouter cu modelul DeepSeek pentru generarea articolului...");
+    
+    // Facem cererea către OpenRouter API
+    console.log("Începem cererea către OpenRouter API...");
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://rss-aggregator.vercel.app/', // Înlocuiește cu domeniul tău
+        'X-Title': 'RSS Aggregator' // Numele aplicației tale
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192', // Folosim cel mai recent model Llama disponibil prin Groq
+        model: 'deepseek/deepseek-chat',  // Specificăm modelul DeepSeek
         messages: [
           {
             role: 'system',
-            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi.'
+            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.5,
+        temperature: 0.7,
         max_tokens: 4000
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Răspuns complet de la Groq:', errorText);
-      throw new Error(`Eroare în API-ul Groq: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
+      console.error('Răspuns complet de la OpenRouter:', errorText);
+      throw new Error(`Eroare în API-ul OpenRouter: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
     }
 
     const data = await response.json();
@@ -378,7 +381,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
 
     return { title, content };
   } catch (error) {
-    console.error('Eroare la generarea articolului cu Llama:', error);
+    console.error('Eroare la generarea articolului cu DeepSeek prin OpenRouter:', error);
     throw error;
   }
 } 

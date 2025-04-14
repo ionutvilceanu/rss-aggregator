@@ -3,8 +3,14 @@
   "buildCommand": "next build",
   "crons": [
     {
-      "path": "/api/cronGenerateNews?apiKey=secure_cron_key&enableWebSearch=true",
-      "schedule": "0 * * * *"
+      "path": "/api/cronGenerateNews",
+      "schedule": "45 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/cronGenerateNews.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    }
+  }
 } 

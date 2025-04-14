@@ -49,13 +49,16 @@ async function translateText(text: string, targetLang: string): Promise<string> 
   }
 }
 
-// Funcție pentru a genera un nou articol folosind API-ul Groq și modelul Llama
+// Funcție pentru a genera un nou articol folosind API-ul OpenRouter cu modelul DeepSeek
 async function generateArticleWithLlama(
   article: Article, 
   customDate: Date | null = null,
-  enableWebSearch: boolean = false
+  enableWebSearch: boolean = true // Forțat la true pentru a obliga căutarea web
 ): Promise<{ title: string; content: string }> {
   try {
+    // Forțăm căutarea web să fie mereu activată
+    enableWebSearch = true;
+    
     // Data actuală sau personalizată pentru context temporal
     const currentDate = customDate || new Date();
     const formattedDate = currentDate.toLocaleDateString('ro-RO', { 
@@ -90,12 +93,10 @@ async function generateArticleWithLlama(
       sourceDomain = "sursa originală";
     }
     
-    // Rezultate căutare web pentru context adițional
+    // Rezultate căutare web pentru context adițional - FORȚAT ACTIV
     let webSearchResults = "";
-    if (enableWebSearch) {
-      console.log(`Efectuez căutare web pentru articolul: "${article.title}"`);
-      webSearchResults = await searchSportsNews(article.title);
-    }
+    console.log(`Efectuez căutare web pentru articolul: "${article.title}"`);
+    webSearchResults = await searchSportsNews(article.title);
     
     // Construim prompt-ul pentru LLM
     const prompt = `Ești un jurnalist profesionist specializat în știri sportive actuale la data de ${formattedDate}.
@@ -114,7 +115,8 @@ Context temporal: ${temporalContext}
 Sursa originală: ${sourceDomain}
 URL sursă: ${article.source_url}
 
-${webSearchResults ? `INFORMAȚII ACTUALE DIN CĂUTARE WEB (3 APRILIE 2025):\n${webSearchResults}\n` : ''}
+INFORMAȚII ACTUALE DIN CĂUTARE WEB (${formattedDate}):
+${webSearchResults || "Nu s-au găsit informații suplimentare din căutarea web."}
 
 INSTRUCȚIUNI IMPORTANTE:
 1. Această știre este RECENTĂ - tratează informațiile ca fiind de ACTUALITATE
@@ -124,33 +126,35 @@ INSTRUCȚIUNI IMPORTANTE:
 5. Extinde știrea cu informații de context relevante și actuale
 6. Evidențiază când s-a întâmplat evenimentul folosind expresii clare de timp (ex: "ieri, 15 octombrie")
 7. Menționează explicit că este o știre recentă și actuală (din ziua publicării originale)
-8. Fă cercetare adițională DOAR pentru a completa cu detalii contextuale, nu pentru a modifica faptele
+8. FOLOSEȘTE OBLIGATORIU informațiile din căutarea web pentru a completa cu context și date recente
 9. Structurează articolul cu titlu captivant, introducere, cuprins și concluzie
 10. Incluzi în final și o referință că știrea este din data originală de publicare
-${webSearchResults ? '11. FOLOSEȘTE informațiile actuale din căutarea web pentru a completa cu context și date recente.' : ''}
 
 Răspunsul tău trebuie să conțină:
 TITLU: [Titlu captivant care subliniază actualitatea știrii]
 CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
-    // Verifică dacă există o cheie API configurată
-    const apiKey = process.env.GROQ_API_KEY || 'GROQ_API_KEY';
-    console.log("Folosim cheia API (primele 10 caractere): " + apiKey.substring(0, 10) + "...");
+    // API key pentru OpenRouter cu modelul DeepSeek
+    const apiKey = process.env.OPENROUTER_API_KEY || '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';
     
-    // Facem cererea către Groq API
-    console.log("Începem cererea către Groq API...");
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    console.log("Folosim OpenRouter cu modelul DeepSeek pentru generarea articolului...");
+    
+    // Facem cererea către OpenRouter API
+    console.log("Începem cererea către OpenRouter API...");
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://rss-aggregator.vercel.app/', // Înlocuiește cu domeniul tău
+        'X-Title': 'RSS Aggregator' // Numele aplicației tale
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192',
+        model: 'deepseek/deepseek-chat',  // Specificăm modelul DeepSeek
         messages: [
           {
             role: 'system',
-            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi.'
+            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
           },
           {
             role: 'user',
@@ -164,8 +168,8 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Răspuns complet de la Groq:', errorText);
-      throw new Error(`Eroare în API-ul Groq: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
+      console.error('Răspuns complet de la OpenRouter:', errorText);
+      throw new Error(`Eroare în API-ul OpenRouter: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
     }
 
     const data = await response.json();
@@ -191,206 +195,79 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
 
     return { title, content };
   } catch (error) {
-    console.error('Eroare la generarea articolului cu Llama:', error);
+    console.error('Eroare la generarea articolului cu DeepSeek prin OpenRouter:', error);
     throw error;
   }
 }
 
+/**
+ * Endpoint special pentru a fi apelat de un cron job la minutul 45 al fiecărei ore
+ * Acest API este proiectat să fie accesat de un serviciu de cron precum:
+ * - Vercel Cron Jobs
+ * - GitHub Actions
+ * - sau prin instrucțiuni cron standard
+ *
+ * Configurație cron: 45 * * * * (la minutul 45 al fiecărei ore)
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Verifică token-ul de autorizare (pentru securitate)
-  const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-  const expectedApiKey = process.env.CRON_API_KEY || 'secure_cron_key'; // Ar trebui setat în variabilele de mediu
-  
-  if (apiKey !== expectedApiKey) {
-    return res.status(401).json({ 
-      error: 'Acces neautorizat. Api key invalidă sau lipsă.'
-    });
-  }
-  
-  // Parametru pentru a forța preluarea celor mai recente știri ignorând verificările de duplicare
-  const forceRefresh = req.query.forceRefresh === 'true';
-  
-  // Opțional: Acceptăm o dată specifică pentru generare (pentru override)
-  const customDate = req.query.customDate ? new Date(req.query.customDate as string) : null;
-  
-  // Parametru pentru a activa căutările web
-  const enableWebSearch = req.query.enableWebSearch === 'true';
-  
+  // Am eliminat verificarea de autorizare - API-ul este acum public
+  // Atenție: Într-un mediu de producție real, ar trebui să implementați măsuri de securitate
+
   try {
-    // Verificăm mai întâi dacă tabela există
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS articles (
-          id SERIAL PRIMARY KEY,
-          title TEXT NOT NULL,
-          content TEXT NOT NULL,
-          image_url TEXT,
-          source_url TEXT NOT NULL,
-          pub_date TIMESTAMP NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          is_manual BOOLEAN DEFAULT FALSE
-        )
-      `);
-      
-      // Adăugăm coloana is_manual dacă tabela există deja și nu are coloana
-      await pool.query(`
-        DO $$
-        BEGIN
-          IF EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_name='articles'
-          ) AND NOT EXISTS (
-            SELECT FROM information_schema.columns 
-            WHERE table_name='articles' AND column_name='is_manual'
-          ) THEN
-            ALTER TABLE articles ADD COLUMN is_manual BOOLEAN DEFAULT FALSE;
-          END IF;
-        END $$;
-      `);
-    } catch (err) {
-      console.error('Eroare la verificarea/crearea tabelei:', err);
-      return res.status(500).json({ 
-        error: 'Eroare la inițializarea bazei de date. Vă rugăm încercați din nou.' 
-      });
-    }
-
-    // Preluăm feed-urile în paralel
-    console.log('Preluare feed-uri RSS cu timestamp pentru evitarea cache-ului...');
-    const parser = new Parser({
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
+    console.log(`[CRON] Rulare job programat la ${new Date().toISOString()}`);
+    
+    // Construim corpul cererii pentru generateNews cu opțiunile dorite
+    const requestBody = {
+      forceRefresh: true, // Forțăm refresh pentru a genera noi articole
+      enableWebSearch: true, // Activăm căutările web pentru context adițional
+      // Nu setăm customDate pentru a folosi data curentă
+    };
+    
+    // Apelăm API-ul generateNews prin cerere POST internă
+    const response = await fetch(`${getBaseUrl(req)}/api/generateNews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
     });
     
-    // Adăugăm un timestamp la URL-uri pentru a evita cache-ul
-    const timestamp = new Date().getTime();
-    const feedPromises = RSS_FEEDS.map((feed) => {
-      const feedUrl = feed.includes('?') ? `${feed}&_t=${timestamp}` : `${feed}?_t=${timestamp}`;
-      console.log(`Preluare din: ${feedUrl}`);
-      return parser.parseURL(feedUrl).catch(error => {
-        console.error(`Eroare la preluarea feed-ului ${feed}:`, error);
-        return { items: [] }; // Întoarce un obiect gol în caz de eroare
-      });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Eroare la apelarea API-ului generateNews: ${response.status}. Detalii: ${errorText}`);
+    }
+    
+    const result = await response.json();
+    
+    // Logăm rezultatul pentru monitorizare
+    console.log(`[CRON] Job finalizat cu succes. Articole generate: ${result.articles?.length || 0}`);
+    
+    // Returnăm rezultatul către cron job
+    return res.status(200).json({
+      success: true,
+      message: `Cron job rulat cu succes la ${new Date().toISOString()}`,
+      result
     });
     
-    const feeds = await Promise.all(feedPromises);
-
-    // Combinăm toate articolele într-un singur array
-    const allRssArticles = feeds.flatMap((feed) =>
-      feed.items ? feed.items.map((item) => ({
-        title: item.title || '',
-        content: item.contentSnippet || item.content || '',
-        source_url: item.link || '',
-        image_url: item.enclosure?.url || '',
-        pub_date: new Date(item.pubDate || new Date()),
-      })) : []
-    );
-
-    console.log(`Total articole preluate din RSS: ${allRssArticles.length}`);
-
-    if (allRssArticles.length === 0) {
-      return res.status(200).json({
-        message: 'Nu s-au găsit articole în sursele RSS.',
-        articles: []
-      });
-    }
-
-    // Sortăm articolele descrescător după dată și luăm ultimele 5
-    const sortedArticles = allRssArticles.sort((a, b) => 
-      b.pub_date.getTime() - a.pub_date.getTime()
-    );
-    
-    const latestArticles = sortedArticles.slice(0, 5);
-    console.log(`Ultimele 5 articole selectate pentru procesare.`);
-
-    // Dacă forceRefresh este true, procesăm toate articolele recente fără a verifica duplicatele
-    let articlesToProcess = latestArticles;
-    
-    if (!forceRefresh) {
-      // Verificăm dacă aceste articole au fost deja procesate
-      articlesToProcess = [];
-      
-      for (const article of latestArticles) {
-        // Verificăm dacă articolul a fost deja procesat
-        const encodedUrl = encodeURIComponent(article.source_url);
-        const checkResult = await pool.query(
-          "SELECT EXISTS (SELECT 1 FROM articles WHERE source_url = $1) AS exists",
-          [`regenerated-from-url:${encodedUrl}`]
-        );
-        
-        if (!checkResult.rows[0].exists) {
-          articlesToProcess.push(article);
-        }
-      }
-    }
-
-    if (articlesToProcess.length === 0) {
-      return res.status(200).json({
-        message: forceRefresh 
-          ? 'Nu s-au găsit articole noi în sursele RSS.' 
-          : 'Toate articolele recente din RSS au fost deja procesate. Folosiți forceRefresh=true pentru a le regenera.',
-        articles: []
-      });
-    }
-
-    // Înregistrează începerea procesului
-    console.log(`Începerea generării de articole: ${new Date().toISOString()}`);
-    console.log(`S-au găsit ${articlesToProcess.length} articole ${forceRefresh ? '(cu forțare)' : 'noi'} din RSS pentru procesare`);
-
-    // Traducem articolele înainte de a le procesa cu AI
-    const translatedArticles = await Promise.all(
-      articlesToProcess.map(async (article) => ({
-        ...article,
-        title: await translateText(article.title, 'ro'),
-        content: await translateText(article.content, 'ro')
-      }))
-    );
-    
-    // Procesează fiecare articol și generează o nouă versiune
-    const generatedArticles = await Promise.all(
-      translatedArticles.map(async (article) => {
-        try {
-          console.log(`Procesare articol: ${article.title}`);
-          
-          // Generează un nou articol folosind Groq și modelul Llama
-          const generatedArticle = await generateArticleWithLlama(article, customDate, enableWebSearch);
-          
-          console.log(`Articol generat. Nou titlu: ${generatedArticle.title}`);
-          
-          // Salvează noul articol în baza de date
-          const insertResult = await pool.query(
-            `INSERT INTO articles 
-             (title, content, image_url, source_url, pub_date, is_manual) 
-             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, true)
-             RETURNING *`,
-            [
-              generatedArticle.title,
-              generatedArticle.content,
-              article.image_url, // Folosim aceeași imagine
-              `regenerated-from-url:${encodeURIComponent(article.source_url)}`, // Referință la articolul original
-            ]
-          );
-          
-          return insertResult.rows[0];
-        } catch (error) {
-          console.error(`Eroare la procesarea articolului "${article.title}":`, error);
-          return null;
-        }
-      })
-    );
-
-    // Filtrează articolele care nu au fost generate cu succes
-    const successfulArticles = generatedArticles.filter(Boolean);
-    
-    console.log(`Generare finalizată. S-au generat cu succes ${successfulArticles.length} articole.`);
-    
-    res.status(200).json({
-      message: `S-au generat cu succes ${successfulArticles.length} articole din ${articlesToProcess.length}`,
-      articles: successfulArticles.map(a => ({ id: a.id, title: a.title }))
-    });
   } catch (error) {
-    console.error('Eroare la generarea știrilor:', error);
-    res.status(500).json({ error: 'Eroare la generarea știrilor' });
+    console.error('[CRON] Eroare la rularea job-ului:', error);
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Eroare la rularea cron job-ului',
+      error: error instanceof Error ? error.message : 'Eroare necunoscută'
+    });
   }
+}
+
+/**
+ * Funcție helper pentru a determina URL-ul de bază al aplicației
+ */
+function getBaseUrl(req: NextApiRequest): string {
+  // În producție, folosim URL-ul configurat sau construim din header-uri
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  
+  // Încercăm să reconstruim URL-ul din header-urile cererii
+  const host = req.headers.host || 'localhost:3000';
+  const protocol = host.includes('localhost') ? 'http:' : 'https:';
+  
+  return `${protocol}//${host}`;
 } 

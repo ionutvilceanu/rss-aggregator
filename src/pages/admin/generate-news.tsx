@@ -8,8 +8,11 @@ export default function GenerateNews() {
   const [error, setError] = useState<string | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [enableWebSearch, setEnableWebSearch] = useState(true);
-  const [customDate, setCustomDate] = useState('2025-04-03');
-  const [useCustomDate, setUseCustomDate] = useState(true);
+  
+  // Format data curentă ca YYYY-MM-DD
+  const currentDate = new Date().toISOString().split('T')[0];
+  const [customDate, setCustomDate] = useState(currentDate);
+  const [useCustomDate, setUseCustomDate] = useState(false);
 
   const handleGenerateNews = async () => {
     setLoading(true);

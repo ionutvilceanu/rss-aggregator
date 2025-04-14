@@ -7,8 +7,9 @@ import { useRouter } from 'next/router';
 function cleanTitle(title: string): string {
   if (!title) return '';
   
-  // Elimină ** și alte caractere speciale de la începutul titlului
-  let cleanedTitle = title.replace(/^\*\*+\s*/, '');
+  // Elimină ** și alte caractere speciale de la începutul și sfârșitul titlului
+  let cleanedTitle = title.replace(/^\*\*+\s*/, ''); // Elimină ** de la început
+  cleanedTitle = cleanedTitle.replace(/\s*\*\*+$/, ''); // Elimină ** de la sfârșit
   
   // Elimină ghilimelele HTML entities (&quot;)
   cleanedTitle = cleanedTitle.replace(/&quot;/g, '"');

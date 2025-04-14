@@ -118,8 +118,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Traducem articolele
     const translatedArticles = await Promise.all(
       sortedFeedArticles.map(async (article) => {
-        const translatedTitle = await translateText(article.title, 'ro');
-        const translatedContent = await translateText(article.content, 'ro');
+        const translatedTitle = await translateText(article.title, 'en');
+        const translatedContent = await translateText(article.content, 'en');
         return {
           ...article,
           title: translatedTitle,
