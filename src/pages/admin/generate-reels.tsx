@@ -529,7 +529,7 @@ export default function GenerateReels() {
       const data = await response.json();
       if (!data.audioUrl) { throw new Error('Invalid audio URL received'); }
   
-      let generatedUrl = data.audioUrl;
+      const generatedUrl = data.audioUrl;
       setAudioUrl(generatedUrl);
   
       return generatedUrl;
@@ -661,16 +661,16 @@ export default function GenerateReels() {
       // și vom adăuga efecte direct pe canvas cu requestAnimationFrame
       
       // ABORDARE ALTERNATIVĂ: Facem o animație directă în canvas și oferim opțiunea de descărcare
-      const frames: string[] = [];
+      const _frames: string[] = [];
       const fps = 30;
-      const videoDurationMs = videoDuration * 1000;
+      const _videoDurationMs = videoDuration * 1000;
       const totalFrames = Math.ceil(fps * videoDuration);
       
       console.log(`Generăm ${totalFrames} cadre pentru video de ${videoDuration} secunde...`);
       
       // Funcție pentru a genera cadrele animației și a construi un GIF sau un video
       const generateFrames = async () => {
-        let frameCount = 0;
+        const frameCount = 0;
         const startTime = performance.now();
         const framePromises: Promise<string>[] = [];
         

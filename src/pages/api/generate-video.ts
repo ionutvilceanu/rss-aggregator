@@ -53,7 +53,7 @@ const downloadFile = async (url: string, outputPath: string, isAudio: boolean = 
     console.log('Folosim o imagine locală ca fallback...');
     
     // Determinăm ce tip de imagine să folosim bazat pe URL (de ex. dacă URL-ul conține "fotbal", folosim imaginea de fotbal)
-    let sportType = 'default_sport';
+    const sportType = 'default_sport';
     
     // Căile către imaginile locale
     const localImagePath = path.join(process.cwd(), 'public', 'images', 'sport', `${sportType}.jpg`);
@@ -438,11 +438,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Date primite:', { fields });
     
     // Conversie corectă a câmpurilor pentru a evita erorile de tip string[]
-    let text = Array.isArray(fields.text) ? fields.text[0] : fields.text || 'Conținut video implicit';
+    const _text = Array.isArray(fields.text) ? fields.text[0] : fields.text || 'Conținut video implicit';
     const effect = Array.isArray(fields.effect) ? fields.effect[0] : fields.effect || 'zoom';
     const duration = Array.isArray(fields.duration) ? fields.duration[0] : fields.duration || '10';
     const audioUrl = Array.isArray(fields.audioUrl) ? fields.audioUrl[0] : fields.audioUrl || '';
-    let imageUrl = Array.isArray(fields.imageUrl) ? fields.imageUrl[0] : fields.imageUrl || '';
+    const imageUrl = Array.isArray(fields.imageUrl) ? fields.imageUrl[0] : fields.imageUrl || '';
     
     console.log(`Effect: ${effect}, Duration: ${duration}`);
     console.log(`Audio URL: ${audioUrl}`);
