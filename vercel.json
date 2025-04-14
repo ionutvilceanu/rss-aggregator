@@ -1,16 +1,4 @@
 {
   "version": 2,
-  "buildCommand": "next build",
-  "crons": [
-    {
-      "path": "/api/cronGenerateNews",
-      "schedule": "45 * * * *"
-    }
-  ],
-  "functions": {
-    "api/cronGenerateNews.ts": {
-      "memory": 1024,
-      "maxDuration": 300
-    }
-  }
+  "buildCommand": "next build"
 } 
