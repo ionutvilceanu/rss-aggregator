@@ -278,8 +278,9 @@ async function generateArticleWithLlama(
     // Rezultate căutare web pentru context adițional
     let webSearchResults = "";
     if (enableWebSearch) {
-      console.log(`Efectuez căutare web pentru articolul: "${article.title}"`);
-      webSearchResults = await searchSportsNews(article.title);
+      console.log(`Efectuez căutare web avansată pentru articolul: "${article.title}"`);
+      // Transmitem și conținutul articolului pentru o căutare mai precisă
+      webSearchResults = await searchSportsNews(article.title, article.content);
     }
     
     // Construim prompt-ul pentru LLM
@@ -291,7 +292,7 @@ Titlul original: "${article.title}"
 
 Conținutul original: 
 """
-${article.content}
+${article.content.replace(/###/g, '')}
 """
 
 Data publicării originale: ${pubDate.toLocaleDateString('ro-RO')}
@@ -299,7 +300,7 @@ Context temporal: ${temporalContext}
 Sursa originală: ${sourceDomain}
 URL sursă: ${article.source_url}
 
-${webSearchResults ? `INFORMAȚII ACTUALE DIN CĂUTARE WEB (${formattedDate}):\n${webSearchResults}\n` : ''}
+${webSearchResults ? `${webSearchResults}` : ''}
 
 INSTRUCȚIUNI IMPORTANTE:
 1. Această știre este RECENTĂ - tratează informațiile ca fiind de ACTUALITATE
@@ -312,14 +313,15 @@ INSTRUCȚIUNI IMPORTANTE:
 8. Fă cercetare adițională DOAR pentru a completa cu detalii contextuale, nu pentru a modifica faptele
 9. Structurează articolul cu titlu captivant, introducere, cuprins și concluzie
 10. Incluzi în final și o referință că știrea este din data originală de publicare
-${webSearchResults ? '11. FOLOSEȘTE informațiile actuale din căutarea web pentru a completa cu context și date recente.' : ''}
+11. IMPORTANT: NU folosi simboluri precum "###" în text
+${webSearchResults ? '12. FOLOSEȘTE informațiile din căutarea web pentru a actualiza și completa articolul cu detalii recente și relevante.' : ''}
 
 Răspunsul tău trebuie să conțină:
 TITLU: [Titlu captivant care subliniază actualitatea știrii]
 CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
     // API key pentru OpenRouter cu modelul DeepSeek
-    const apiKey = process.env.OPENROUTER_API_KEY || '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';
+    const apiKey = process.env.OPENROUTER_API_KEY || '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';
     
     console.log("Folosim OpenRouter cu modelul DeepSeek pentru generarea articolului...");
     
@@ -334,7 +336,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
         'X-Title': 'RSS Aggregator' // Numele aplicației tale
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat',  // Specificăm modelul DeepSeek
+        model: 'deepseek/deepseek-r1-zero:free',  // Specificăm modelul DeepSeek
         messages: [
           {
             role: 'system',
@@ -345,7 +347,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
             content: prompt
           }
         ],
-        temperature: 0.7,
+        temperature: 0.5,
         max_tokens: 4000
       })
     });
@@ -379,6 +381,28 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
       content = generatedText;
     }
 
+    // Eliminăm toate simbolurile "###" din conținut
+    content = content.replace(/###/g, '');
+    title = title.replace(/###/g, '');
+    
+    // Eliminăm orice structuri JSON neprelucrate sau sintaxă specifică formatării
+    content = content
+      .replace(/boxed\{[`'"]*\}json\s*\{/g, '') // Eliminăm prefixul boxed{``}json {
+      .replace(/"\s*,\s*"content"\s*:\s*"/g, '') // Eliminăm separatorul între titlu și conținut
+      .replace(/oxed\{[`'"]*\}json\s*\{/g, '') // Captăm varianta cu 'oxed' (dacă boxed e tăiat)
+      .replace(/"\s*\}\s*$/g, '') // Eliminăm închiderea JSON
+      .replace(/"title"\s*:\s*"/g, '') // Eliminăm marcajul de titlu
+      .replace(/\\n\\n/g, '\n\n'); // Înlocuim escape sequences
+    
+    // Curățăm titlul de asemenea
+    title = title
+      .replace(/boxed\{[`'"]*\}json\s*\{/g, '')
+      .replace(/"\s*,\s*"content"\s*:\s*"/g, '')
+      .replace(/oxed\{[`'"]*\}json\s*\{/g, '')
+      .replace(/"\s*\}\s*$/g, '')
+      .replace(/"title"\s*:\s*"/g, '')
+      .replace(/\\n\\n/g, '\n\n');
+    
     return { title, content };
   } catch (error) {
     console.error('Eroare la generarea articolului cu DeepSeek prin OpenRouter:', error);

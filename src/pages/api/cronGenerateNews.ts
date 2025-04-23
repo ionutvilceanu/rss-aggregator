@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
 import { searchSportsNews } from '../../lib/webSearch';
+import { generateArticleWithGemini } from '../../lib/geminiAPI';
 
 interface Article {
   id?: number;
@@ -49,16 +50,14 @@ async function translateText(text: string, targetLang: string): Promise<string> 
   }
 }
 
-// Funcție pentru a genera un nou articol folosind API-ul OpenRouter cu modelul DeepSeek
-async function generateArticleWithLlama(
+// Funcție pentru a genera un nou articol folosind API-ul Groq cu modelul DeepSeek
+async function generateArticleWithGroq(
   article: Article, 
   customDate: Date | null = null,
-  enableWebSearch: boolean = true // Forțat la true pentru a obliga căutarea web
+  enableWebSearch: boolean = true,
+  retryCount: number = 0
 ): Promise<{ title: string; content: string }> {
   try {
-    // Forțăm căutarea web să fie mereu activată
-    enableWebSearch = true;
-    
     // Data actuală sau personalizată pentru context temporal
     const currentDate = customDate || new Date();
     const formattedDate = currentDate.toLocaleDateString('ro-RO', { 
@@ -93,10 +92,17 @@ async function generateArticleWithLlama(
       sourceDomain = "sursa originală";
     }
     
-    // Rezultate căutare web pentru context adițional - FORȚAT ACTIV
+    // Rezultate căutare web pentru context adițional
     let webSearchResults = "";
-    console.log(`Efectuez căutare web pentru articolul: "${article.title}"`);
-    webSearchResults = await searchSportsNews(article.title);
+    if (enableWebSearch) {
+      try {
+        console.log(`Efectuez căutare web pentru articolul: "${article.title}"`);
+        webSearchResults = await searchSportsNews(article.title);
+      } catch (searchError) {
+        console.error(`Eroare la căutarea web pentru "${article.title}":`, searchError);
+        webSearchResults = ""; // Setăm explicit la string gol în caz de eroare
+      }
+    }
     
     // Construim prompt-ul pentru LLM
     const prompt = `Ești un jurnalist profesionist specializat în știri sportive actuale la data de ${formattedDate}.
@@ -115,8 +121,7 @@ Context temporal: ${temporalContext}
 Sursa originală: ${sourceDomain}
 URL sursă: ${article.source_url}
 
-INFORMAȚII ACTUALE DIN CĂUTARE WEB (${formattedDate}):
-${webSearchResults || "Nu s-au găsit informații suplimentare din căutarea web."}
+${webSearchResults ? `INFORMAȚII ACTUALE DIN CĂUTARE WEB (${formattedDate}):\n${webSearchResults}\n` : ''}
 
 INSTRUCȚIUNI IMPORTANTE:
 1. Această știre este RECENTĂ - tratează informațiile ca fiind de ACTUALITATE
@@ -126,50 +131,51 @@ INSTRUCȚIUNI IMPORTANTE:
 5. Extinde știrea cu informații de context relevante și actuale
 6. Evidențiază când s-a întâmplat evenimentul folosind expresii clare de timp (ex: "ieri, 15 octombrie")
 7. Menționează explicit că este o știre recentă și actuală (din ziua publicării originale)
-8. FOLOSEȘTE OBLIGATORIU informațiile din căutarea web pentru a completa cu context și date recente
+8. Fă cercetare adițională DOAR pentru a completa cu detalii contextuale, nu pentru a modifica faptele
 9. Structurează articolul cu titlu captivant, introducere, cuprins și concluzie
 10. Incluzi în final și o referință că știrea este din data originală de publicare
+${webSearchResults ? '11. FOLOSEȘTE informațiile actuale din căutarea web pentru a completa cu context și date recente.' : ''}
 
 Răspunsul tău trebuie să conțină:
 TITLU: [Titlu captivant care subliniază actualitatea știrii]
 CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
-    // API key pentru OpenRouter cu modelul DeepSeek
-    const apiKey = process.env.OPENROUTER_API_KEY || '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';
+    // API key pentru Groq cu modelul DeepSeek
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
-    console.log("Folosim OpenRouter cu modelul DeepSeek pentru generarea articolului...");
+    console.log("Folosim Groq cu modelul DeepSeek pentru generarea articolului...");
     
-    // Facem cererea către OpenRouter API
-    console.log("Începem cererea către OpenRouter API...");
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://rss-aggregator.vercel.app/', // Înlocuiește cu domeniul tău
-        'X-Title': 'RSS Aggregator' // Numele aplicației tale
-      },
-      body: JSON.stringify({
-        model: 'deepseek/deepseek-chat',  // Specificăm modelul DeepSeek
-        messages: [
-          {
-            role: 'system',
-            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
-      })
-    });
+     // Facem cererea către OpenRouter API
+     console.log("Începem cererea către OpenRouter API...");
+     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+       method: 'POST',
+       headers: {
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${apiKey}`,
+         'HTTP-Referer': 'https://rss-aggregator.vercel.app/', // Înlocuiește cu domeniul tău
+         'X-Title': 'RSS Aggregator' // Numele aplicației tale
+       },
+       body: JSON.stringify({
+         model: '',  // Specificăm modelul DeepSeek
+         messages: [
+           {
+             role: 'system',
+             content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
+           },
+           {
+             role: 'user',
+             content: prompt
+           }
+         ],
+         temperature: 0.7,
+         max_tokens: 4000
+       })
+     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Răspuns complet de la OpenRouter:', errorText);
-      throw new Error(`Eroare în API-ul OpenRouter: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Eroare API Groq:', errorData);
+      throw new Error(`Eroare API Groq: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -183,6 +189,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
     if (titleMatch && titleMatch[1]) {
       title = titleMatch[1].trim();
     } else {
+      // Dacă nu găsim formatul, folosim titlul original cu un prefix
       title = `O analiză nouă: ${article.title}`;
     }
 
@@ -190,12 +197,21 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
     if (contentMatch && contentMatch[1]) {
       content = contentMatch[1].trim();
     } else {
+      // Dacă nu găsim formatul, folosim tot textul generat
       content = generatedText;
     }
 
     return { title, content };
   } catch (error) {
-    console.error('Eroare la generarea articolului cu DeepSeek prin OpenRouter:', error);
+    console.error('Eroare la generarea articolului cu DeepSeek prin Groq:', error);
+    
+    // Reîncercăm de max 2 ori în caz de eroare
+    if (retryCount < 2) {
+      console.log(`Reîncercăm generarea articolului (încercare ${retryCount + 1} din 2)...`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Așteptăm 2 secunde
+      return generateArticleWithGroq(article, customDate, enableWebSearch, retryCount + 1);
+    }
+    
     throw error;
   }
 }

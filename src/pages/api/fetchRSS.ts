@@ -78,9 +78,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // MODIFICAT: Nu mai preluăm feed-urile RSS direct
     // Acum preluăm doar articolele din baza de date
     
-    // 5. Preluăm articolele din baza de date
+    // 5. Preluăm articolele din baza de date - specificăm exact coloanele pentru a evita erori cu coloane eliminate
     const articlesQueryResult = await pool.query(`
-      SELECT * FROM articles 
+      SELECT id, title, content, image_url, source_url, pub_date, created_at, is_manual
+      FROM articles 
       ORDER BY pub_date DESC 
       LIMIT $1 OFFSET $2
     `, [limit, skip]);

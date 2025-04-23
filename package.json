@@ -13,10 +13,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.6",
     "@ffmpeg/util": "^0.12.2",
+    "@mui/icons-material": "^7.0.2",
+    "@mui/material": "^7.0.2",
     "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
     "cookie": "^1.0.2",
     "cookies-next": "^5.1.0",
     "dotenv": "^16.0.0",
@@ -30,10 +35,10 @@
     "next": "latest",
     "node-cron": "^3.0.2",
     "node-fetch": "^2.6.7",
-    "pg": "^8.7.1",
+    "pg": "^8.14.1",
     "react": "latest",
     "react-dom": "latest",
-    "rss-parser": "^3.12.0",
+    "rss-parser": "^3.13.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
@@ -44,7 +49,7 @@
     "@types/js-cookie": "^3.0.6",
     "@types/node": "latest",
     "@types/node-fetch": "^2.6.12",
-    "@types/pg": "^8.6.5",
+    "@types/pg": "^8.11.13",
     "@types/react": "latest",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
