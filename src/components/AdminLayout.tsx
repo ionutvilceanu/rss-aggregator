@@ -8,6 +8,9 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import WebIcon from '@mui/icons-material/Web';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import SettingsIcon from '@mui/icons-material/Settings';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import MovieIcon from '@mui/icons-material/Movie';
+import { MenuItem } from '@mui/material';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -54,21 +57,21 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </ListItemButton>
           </Link>
           
-          <Link href="/admin/scrape-articles" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link href="/admin/rewrite-articles" style={{ textDecoration: 'none', color: 'inherit' }}>
             <ListItemButton>
               <ListItemIcon>
-                <WebIcon />
+                <ContentPasteIcon />
               </ListItemIcon>
-              <ListItemText primary="Extrage Articole Complete" />
+              <ListItemText primary="Rescriere articole" />
             </ListItemButton>
           </Link>
           
           <Link href="/admin/generate-reels" style={{ textDecoration: 'none', color: 'inherit' }}>
             <ListItemButton>
               <ListItemIcon>
-                <VideoLibraryIcon />
+                <MovieIcon />
               </ListItemIcon>
-              <ListItemText primary="Generează Reels" />
+              <ListItemText primary="Generare TikTok" />
             </ListItemButton>
           </Link>
           

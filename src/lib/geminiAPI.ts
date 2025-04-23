@@ -198,7 +198,7 @@ RĂSPUNDE DOAR CU UN JSON CURAT ȘI VALID, CONFORM FORMATULUI:
           
           // Dacă prima încercare eșuează, încercăm să curățăm mai agresiv textul
           console.log("Curățăm mai agresiv JSON-ul și reîncercăm...");
-          let cleanedJson = jsonMatch[0]
+          const cleanedJson = jsonMatch[0]
             .replace(/\\n/g, ' ')  // Înlocuim newline cu spații
             .replace(/\\"/g, '"')  // Gestionăm ghilimelele escape
             .replace(/"/g, '"')    // Înlocuim ghilimelele smart
