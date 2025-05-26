@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import formidable, { Part, File } from 'formidable';
+import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
 
@@ -33,14 +33,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       keepExtensions: true,
       maxFiles: 1,
       maxFileSize: 5 * 1024 * 1024, // 5MB
-      filter: (part: Part) => {
+      filter: (part) => {
         // Acceptăm doar imagini
         return part.mimetype?.includes('image/') || false;
       },
     });
 
     // Procesăm încărcarea
-    const result: { fields: formidable.Fields; files: formidable.Files } = await new Promise((resolve, reject) => {
+    const result = await new Promise<{ fields: formidable.Fields; files: formidable.Files }>((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) {
           reject(err);
@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: 'Nu s-a încărcat nicio imagine validă' });
     }
 
-    const file = files[0] as File;
+    const file = files[0];
 
     // Obținem numele fișierului
     const fileName = path.basename(file.originalFilename || 'image');

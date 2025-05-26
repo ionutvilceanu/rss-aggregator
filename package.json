@@ -40,6 +40,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/cookie": "^0.6.0",
+    "@types/formidable": "^3.4.5",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "latest",
     "@types/node-fetch": "^2.6.12",
