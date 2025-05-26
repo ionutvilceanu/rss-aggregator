@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
-import { searchSportsNews } from '../../lib/webSearch';
+import { searchSportsNews, searchWeb } from '../../lib/webSearch';
 
 interface Article {
   id?: number;
@@ -196,8 +196,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generatedArticles = await Promise.all(
       translatedArticles.map(async (article) => {
         try {
-          // Generează un nou articol folosind API-ul OpenRouter cu modelul DeepSeek
-          const generatedArticle = await generateArticleWithLlama(article, customDate, enableWebSearch);
+          // Etapa 1: Analiza articolului original și solicitarea de informații relevante
+          const searchQueries = await generateSearchQueries(article);
+          
+          // Etapa 2: Efectuarea căutărilor și obținerea rezultatelor
+          const searchResults = await performTargetedSearches(searchQueries);
+          
+          // Etapa 3: Generarea articolului final cu informațiile obținute
+          const generatedArticle = await generateFinalArticle(article, searchResults, customDate);
           
           // Salvează noul articol în baza de date
           const insertResult = await pool.query(
@@ -234,8 +240,375 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Funcție pentru a genera un nou articol folosind API-ul OpenRouter cu modelul DeepSeek
-async function generateArticleWithLlama(
+// Funcție pentru analiza articolului și generarea de query-uri de căutare
+async function generateSearchQueries(article: Article): Promise<string[]> {
+  try {
+    console.log(`Analizăm articolul "${article.title}" pentru a determina căutările necesare...`);
+    
+    // Verificăm dacă avem suficient conținut pentru analiză
+    if (!article.title || !article.content || article.content.length < 10) {
+      console.log("Conținut insuficient pentru analiză, generăm query-uri de bază");
+      return [
+        `${article.title} statistici echipe loturi actuale`,
+        `${article.title} ultimele rezultate meciuri recente`,
+        `${article.title} clasament competiție actuală`
+      ];
+    }
+    
+    // Construim prompt-ul pentru analiza inițială - mai detaliat și specific pentru sport
+    const analysisPrompt = `Ești un analist sportiv profesionist și cercetător cu experiență în jurnalismul sportiv.
+
+Analizează următorul articol sportiv și identifică 4-5 cereri de căutare specifice care ar îmbunătăți considerabil articolul.
+
+Titlul articolului: "${article.title}"
+
+Conținutul articolului: 
+"""
+${article.content}
+"""
+
+INSTRUCȚIUNI IMPORTANTE:
+
+1. Identifică EXPLICIT numele echipelor, jucătorilor și competițiilor menționate în articol
+2. Pentru fiecare entitate identificată, generează query-uri de căutare super specifice
+3. Include întotdeauna query-uri pentru: lotul actual al echipelor, ultimele rezultate, clasament actual, statistici relevante
+4. Formulează query-urile în română, folosind termeni utilizați în România (ex: "lot" în loc de "roster", "etapă" în loc de "matchday")
+5. Personalizează căutările la contextul specific al articolului (transferuri, accidentări, schimbări antrenori etc)
+
+Răspunde DOAR cu lista de cereri de căutare, una pe linie, fără numerotare sau explicații.
+Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, competiție și context clar.`;
+
+    // API key pentru Groq
+    const apiKey = process.env.GROQ_API_KEY || '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';
+    
+    // Facem cererea către Groq API pentru analiza inițială - folosind modelul mai avansat
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile', 
+        messages: [
+          {
+            role: 'system',
+            content: 'Ești un analist sportiv și cercetător expert care identifică cu precizie entitățile sportive (echipe, jucători, competiții) și generează query-uri de căutare ultra-specifice pentru a îmbunătăți articolele sportive.'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 800
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Eroare la analiza articolului: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    let searchText = data.choices[0]?.message?.content || '';
+    
+    console.log(`Răspuns brut de la API: "${searchText.substring(0, 150)}..."`);
+    
+    // Transformăm textul în array de query-uri, cu filtrare mai eficientă
+    let searchQueries = searchText
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => 
+        line.length > 8 && 
+        !line.startsWith('#') && 
+        !line.startsWith('-') &&
+        !line.match(/^[0-9]\./) && // Eliminăm linii care încep cu numere urmate de punct
+        !line.match(/^Cerere|^Query|^Căutare/) // Eliminăm linii care încep cu cuvinte metadata
+      );
+      
+    // Verificăm dacă avem rezultate valide
+    if (searchQueries.length === 0) {
+      console.log("Nu s-au generat query-uri valide din răspuns, folosim query-uri implicite");
+      
+      // Extragem potențiale entități din titlu pentru query-uri implicite mai relevante
+      const titleWords = article.title.split(' ');
+      const potentialEntities = titleWords.filter(word => word.length > 3 && word[0] === word[0].toUpperCase());
+      const entityQuery = potentialEntities.length > 0 ? potentialEntities.join(' ') : article.title;
+      
+      // Query-uri implicite în caz că nu avem rezultate
+      searchQueries = [
+        `${entityQuery} lot actual jucători`, 
+        `${article.title} ultimele 5 rezultate`, 
+        `${article.title} clasament actual competiție`,
+        `${article.title} statistici recente meciuri`
+      ];
+    }
+    
+    // Limităm la maxim 5 query-uri
+    searchQueries = searchQueries.slice(0, 5);
+      
+    console.log(`Generate ${searchQueries.length} cereri de căutare pentru articol:`, searchQueries);
+    return searchQueries;
+  } catch (error) {
+    console.error('Eroare la generarea query-urilor de căutare:', error);
+    // În caz de eroare, returnăm mai multe query-uri de căutare implicite bazate pe titlu
+    
+    // Încercăm să extragem potențiale entități din titlu
+    const titleWords = article.title.split(' ');
+    const potentialEntities = titleWords.filter(word => word.length > 3 && word[0] === word[0].toUpperCase());
+    const entityQuery = potentialEntities.length > 0 ? potentialEntities.join(' ') : article.title;
+    
+    const defaultQueries = [
+      `${entityQuery} lot actual jucători echipă`, 
+      `${article.title} ultimele rezultate meciuri`, 
+      `${article.title} clasament actualizat`,
+      `${article.title} statistici importante sportive`
+    ];
+    console.log(`Folosim ${defaultQueries.length} query-uri implicite:`, defaultQueries);
+    return defaultQueries;
+  }
+}
+
+// Funcție pentru efectuarea căutărilor web specifice
+async function performTargetedSearches(searchQueries: string[]): Promise<string> {
+  try {
+    console.log(`Efectuăm ${searchQueries.length} căutări web specifice...`);
+    
+    // Executăm toate căutările în paralel pentru eficiență
+    const searchPromises = searchQueries.map(async (query, index) => {
+      // Folosim funcția searchWeb care acceptă un număr ca al doilea parametru
+      console.log(`Căutare #${index + 1}: "${query}"`);
+      const results = await searchWeb(query, 2); // Limităm la 2 rezultate per query
+      return {
+        query,
+        results
+      };
+    });
+    
+    const allResults = await Promise.all(searchPromises);
+    
+    // Combinăm și structurăm rezultatele
+    let combinedResults = `REZULTATE CĂUTARE WEB (${new Date().toLocaleDateString('ro-RO')}):\n\n`;
+    
+    allResults.forEach(result => {
+      combinedResults += `PENTRU CEREREA: "${result.query}"\n`;
+      combinedResults += `${result.results}\n`;
+      combinedResults += `---\n\n`;
+    });
+    
+    console.log(`Am obținut ${combinedResults.length} caractere de informații din căutările web.`);
+    return combinedResults;
+  } catch (error: unknown) {
+    console.error('Eroare la efectuarea căutărilor web:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Eroare necunoscută';
+    return `Nu s-au putut efectua căutările web din cauza unei erori: ${errorMessage}`;
+  }
+}
+
+// Funcție pentru generarea articolului final cu informațiile obținute
+async function generateFinalArticle(
+  article: Article, 
+  searchResults: string,
+  customDate: Date | null = null
+): Promise<{ title: string; content: string }> {
+  try {
+    // Data actuală sau personalizată pentru context temporal
+    const currentDate = customDate || new Date();
+    const formattedDate = currentDate.toLocaleDateString('ro-RO', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    
+    // Calculăm timpul trecut de la publicarea articolului original
+    const pubDate = new Date(article.pub_date);
+    const timeDiff = currentDate.getTime() - pubDate.getTime();
+    const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+    
+    let temporalContext = "";
+    if (daysDiff === 0) {
+      temporalContext = "Acest articol a fost publicat astăzi.";
+    } else if (daysDiff === 1) {
+      temporalContext = "Acest articol a fost publicat ieri.";
+    } else if (daysDiff < 0) {
+      temporalContext = `Acest articol este programat să fie publicat în ${Math.abs(daysDiff)} zile.`;
+    } else {
+      temporalContext = `Acest articol a fost publicat acum ${daysDiff} zile.`;
+    }
+
+    // Extrage domeniul din URL-ul sursei
+    let sourceDomain = "";
+    try {
+      const urlObj = new URL(article.source_url);
+      sourceDomain = urlObj.hostname.replace('www.', '');
+    } catch (e) {
+      sourceDomain = "sursa originală";
+    }
+    
+    // Construim prompt-ul pentru generarea articolului final
+    const finalPrompt = `Ești un jurnalist sportiv profesionist. Sarcina ta este să rescrii și să îmbunătățești un articol sportiv folosind informații suplimentare.
+
+ARTICOL ORIGINAL:
+"${article.title}"
+
+${article.content.replace(/###/g, '')}
+
+INFORMAȚII ADIȚIONALE:
+${searchResults}
+
+CONTEXT:
+- Data publicării: ${pubDate.toLocaleDateString('ro-RO')}
+- ${temporalContext}
+- Sursa originală: ${sourceDomain}
+
+CERINȚE PENTRU ARTICOLUL NOU:
+- Păstrează toate datele și statisticile din articolul original
+- Menține numele exacte ale echipelor și jucătorilor
+- Adaugă informații relevante din căutările web
+- Structurează articolul cu introducere și concluzie clară
+- Folosește un limbaj profesional, jurnalistic, captivant
+- Extinde articolul la minimum 600 de cuvinte
+- Menționează sursa când adaugi informații noi
+
+RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
+
+===TITLU===
+[Scrie aici un titlu captivant]
+
+===CONȚINUT===
+[Scrie aici conținutul articolului]`;
+
+    // API key pentru Groq
+    const apiKey = process.env.GROQ_API_KEY || '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';
+    
+    console.log("Generăm articolul final cu informațiile obținute...");
+    
+    // Facem cererea către Groq API pentru generarea articolului final
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-r1-distill-llama-70b',  // Model complet pentru generarea finală
+        messages: [
+          {
+            role: 'system',
+            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
+          },
+          {
+            role: 'user',
+            content: finalPrompt
+          }
+        ],
+        temperature: 0.5,
+        max_tokens: 4000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Răspuns complet de la Groq:', errorText);
+      throw new Error(`Eroare la generarea articolului final: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    let generatedText = data.choices[0]?.message?.content || '';
+    
+    // Extragem titlul și conținutul din răspuns folosind delimitatorii specifici
+    let title = '';
+    let content = '';
+
+    const titleMatch = generatedText.match(/===TITLU===\s*([\s\S]*?)(?=\s*===CONȚINUT===|$)/);
+    if (titleMatch && titleMatch[1]) {
+      title = titleMatch[1].trim();
+    } else {
+      title = `${article.title}`;
+    }
+
+    const contentMatch = generatedText.match(/===CONȚINUT===\s*([\s\S]*)/);
+    if (contentMatch && contentMatch[1]) {
+      content = contentMatch[1].trim();
+    } else {
+      content = generatedText; // Dacă nu găsim formatul, folosim tot textul generat
+    }
+
+    // Funcție pentru curățarea oricăror meta-comentarii
+    function cleanMetaComments(text: string): string {
+      return text
+        // Eliminăm orice instrucțiuni care au fost copiate în răspuns
+        .replace(/TITLU:|CONȚINUT:|RĂSPUNDE FOLOSIND|CERINȚE PENTRU|ARTICOL ORIGINAL:|INFORMAȚII ADIȚIONALE:|CONTEXT:/g, '')
+        // Eliminăm linii care descriu procesul sau strategia
+        .replace(/(?:Acum|Apoi|Voi|Trebuie să|O să|Hai să|Pentru a|În primul rând|În continuare|Următorul pas)[^.!?:;]*(?:scriu|explic|analizez|dezvolt|prezint|descriu|structurez|menționez|redactez|creez|includ)[^.!?]*\./gi, '')
+        // Eliminăm explicații despre cum să construiască articolul
+        .replace(/(?:articolul|textul|conținutul)[^.!?]*(?:trebuie|ar trebui|va fi|este|poate fi)[^.!?]*(?:structurat|scris|redactat|formulat|captivant|profesional|clar)[^.!?]*\./gi, '')
+        // Eliminăm comentarii despre citări sau surse
+        .replace(/(?:voi|trebuie să|este important să)[^.!?]*cit[aăe][^.!?]*surs[aăe][^.!?]*\./gi, '')
+        // Eliminăm orice text care menționează explicații meta sau stilul de scriuere
+        .replace(/[^.!?]*(?:meta comentarii|explic cum|cum scriu|procesul de creație|stilul de scriere)[^.!?]*\./gi, '')
+        // Eliminăm referințe la instrucțiunile primite
+        .replace(/[^.!?]*(?:conform instrucțiunilor|așa cum s-a cerut|după cum mi s-a solicitat)[^.!?]*\./gi, '')
+        // Eliminăm orice text între paranteze care par a fi meta comentarii
+        .replace(/\([^)]*(?:articol|titlu|conținut|text)[^)]*(?:profesional|jurnalistic|captivant|sportiv)[^)]*\)/gi, '')
+        // Eliminăm texte cu "Let me" sau "I'll"
+        .replace(/(?:Let me|I'll|I will|I need to|I should)[^.!?]*\./gi, '')
+        // Eliminăm marcaje markdown
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/#+\s+/g, '')
+        // Eliminăm texte cu "I'm" sau "I am"
+        .replace(/(?:I'm|I am)[^.!?]*\./gi, '')
+        // Eliminăm texte de verificare
+        .replace(/(?:I'll check|Let me verify|I'll make sure|I'll ensure)[^.!?]*\./gi, '')
+        // Eliminăm linii cu "TITLU:" în ele 
+        .replace(/.*TITLU:.*\n?/g, '')
+        // Curățăm spații multiple și linii goale
+        .replace(/\n\s*\n\s*\n/g, '\n\n')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    // Curățăm textul
+    title = cleanMetaComments(title);
+    content = cleanMetaComments(content);
+    
+    // Verificăm dacă conținutul începe cu titlul și îl eliminăm dacă e cazul
+    if (content.startsWith(title)) {
+      content = content.substring(title.length).trim();
+    }
+    
+    // Verificăm și eliminăm orice formă de "Conținut:" din text
+    content = content.replace(/^(?:Conținut|CONȚINUT):\s*/i, '');
+    
+    // Eliminăm orice structuri JSON neprelucrate sau sintaxă specifică formatării
+    content = content
+      .replace(/boxed\{[`'"]*\}json\s*\{/g, '') 
+      .replace(/"\s*,\s*"content"\s*:\s*"/g, '')
+      .replace(/oxed\{[`'"]*\}json\s*\{/g, '')
+      .replace(/"\s*\}\s*$/g, '')
+      .replace(/"title"\s*:\s*"/g, '')
+      .replace(/\\n\\n/g, '\n\n')
+      // Eliminăm marcajele editoriale comune
+      .replace(/\n*(Introducere|Cuprins|Context|Detalii despre|Reacții|Perspective|Concluzie):\n*/gi, '\n\n')
+      // Eliminăm referințele la surse în format markdown
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      // Adăugăm întotdeauna un paragraf nou după titluri
+      .replace(/([.!?]\s*)([A-Z])/g, '$1\n\n$2');
+      
+    // Mai facem o verificare finală pentru meta-comentarii
+    title = title.replace(/(?:și urmat de|fără explicații sau|trebuie să)[^.!?]*/gi, '').trim();
+    
+    console.log(`Articol generat cu succes: "${title}" (${content.length} caractere)`);
+    return { title, content };
+  } catch (error) {
+    console.error('Eroare la generarea articolului final:', error);
+    throw error;
+  }
+}
+
+// Păstrăm și funcția originală ca backup în caz că noua implementare eșuează
+async function generateArticleWithGroq(
   article: Article, 
   customDate: Date | null = null,
   enableWebSearch: boolean = false
@@ -309,34 +682,32 @@ INSTRUCȚIUNI IMPORTANTE:
 4. Păstrează toate numele, echipele și competițiile exacte din articolul original
 5. Extinde știrea cu informații de context relevante și actuale
 6. Evidențiază când s-a întâmplat evenimentul folosind expresii clare de timp (ex: "ieri, 15 octombrie")
-7. Menționează explicit că este o știre recentă și actuală (din ziua publicării originale)
-8. Fă cercetare adițională DOAR pentru a completa cu detalii contextuale, nu pentru a modifica faptele
-9. Structurează articolul cu titlu captivant, introducere, cuprins și concluzie
-10. Incluzi în final și o referință că știrea este din data originală de publicare
-11. IMPORTANT: NU folosi simboluri precum "###" în text
-${webSearchResults ? '12. FOLOSEȘTE informațiile din căutarea web pentru a actualiza și completa articolul cu detalii recente și relevante.' : ''}
+7. Fă cercetare adițională DOAR pentru a completa cu detalii contextuale, nu pentru a modifica faptele
+8. Structurează articolul cu titlu captivant, introducere, cuprins și concluzie
+9. Incluzi în final și o referință că știrea este din data originală de publicare
+10. IMPORTANT: NU folosi simboluri precum "###" în text
+${webSearchResults ? '11. FOLOSEȘTE informațiile din căutarea web pentru a actualiza și completa articolul cu detalii recente și relevante.' : ''}
 
-Răspunsul tău trebuie să conțină:
+Răspunsul tău(un articol gata de publicat care va ajunge la vizitatorii finali ai celei mai bune redactii sportive din Romania) trebuie să conțină:
 TITLU: [Titlu captivant care subliniază actualitatea știrii]
-CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
+CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]
+IMPORTANT: NU trebuie sa imi dai strategia ta de scriere a articolului, doar sa imi scrii articolul gata de publicat.`;
 
-    // API key pentru OpenRouter cu modelul DeepSeek
-    const apiKey = process.env.OPENROUTER_API_KEY || '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';
+    // API key pentru Groq
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
-    console.log("Folosim OpenRouter cu modelul DeepSeek pentru generarea articolului...");
+    console.log("Folosim Groq cu modelul LLama 3 pentru generarea articolului...");
     
-    // Facem cererea către OpenRouter API
-    console.log("Începem cererea către OpenRouter API...");
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Facem cererea către Groq API
+    console.log("Începem cererea către Groq API...");
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://rss-aggregator.vercel.app/', // Înlocuiește cu domeniul tău
-        'X-Title': 'RSS Aggregator' // Numele aplicației tale
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1-zero:free',  // Specificăm modelul DeepSeek
+        model: 'llama-3.3-70b-versatile',  
         messages: [
           {
             role: 'system',
@@ -354,8 +725,8 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Răspuns complet de la OpenRouter:', errorText);
-      throw new Error(`Eroare în API-ul OpenRouter: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
+      console.error('Răspuns complet de la Groq:', errorText);
+      throw new Error(`Eroare în API-ul Groq: ${response.status} ${response.statusText}. Detalii: ${errorText}`);
     }
 
     const data = await response.json();
@@ -405,7 +776,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
     
     return { title, content };
   } catch (error) {
-    console.error('Eroare la generarea articolului cu DeepSeek prin OpenRouter:', error);
+    console.error('Eroare la generarea articolului cu Groq:', error);
     throw error;
   }
 } 

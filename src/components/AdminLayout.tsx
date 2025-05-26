@@ -10,6 +10,8 @@ import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import MovieIcon from '@mui/icons-material/Movie';
+import ChatIcon from '@mui/icons-material/Chat';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { MenuItem } from '@mui/material';
 
 interface AdminLayoutProps {
@@ -45,6 +47,24 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 <CreateIcon />
               </ListItemIcon>
               <ListItemText primary="Generează Știri AI" />
+            </ListItemButton>
+          </Link>
+          
+          <Link href="/admin/generate-viral-articles" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <ListItemButton>
+              <ListItemIcon>
+                <TrendingUpIcon />
+              </ListItemIcon>
+              <ListItemText primary="Articole Virale" />
+            </ListItemButton>
+          </Link>
+          
+          <Link href="/admin/generate-by-prompt" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <ListItemButton>
+              <ListItemIcon>
+                <ChatIcon />
+              </ListItemIcon>
+              <ListItemText primary="Generează din Prompt" />
             </ListItemButton>
           </Link>
           

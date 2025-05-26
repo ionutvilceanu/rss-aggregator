@@ -3,11 +3,15 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { v4 as uuidv4 } from 'uuid';
+import JSZip from 'jszip';
 
-// Declarăm tipurile globale pentru captureStream
+// Declarăm tipurile globale pentru captureStream și MediaRecorder
 declare global {
+  interface HTMLCanvasElement {
+    captureStream(frameRate?: number): MediaStream;
+  }
   interface HTMLAudioElement {
-    captureStream?: () => MediaStream;
+    captureStream(): MediaStream;
   }
   interface Window {
     webkitAudioContext?: typeof AudioContext;
@@ -247,6 +251,37 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, isSelected, onClick 
   );
 };
   
+// Adăugăm helper pentru verificarea formatelor media suportate de browser
+function getSupportedMimeTypes() {
+  const possibleTypes = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=h264,opus',
+    'video/mp4;codecs=h264,aac',
+    'video/webm',
+    'video/mp4'
+  ];
+  
+  return possibleTypes.filter(type => {
+    try {
+      return MediaRecorder.isTypeSupported(type);
+    } catch (e) {
+      return false;
+    }
+  });
+}
+  
+// Verificăm dacă browser-ul suportă funcționalitățile necesare
+function isBrowserCompatible() {
+  const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
+  const hasCanvasCapture = HTMLCanvasElement.prototype.captureStream !== undefined;
+  return { 
+    hasMediaRecorder, 
+    hasCanvasCapture,
+    isFullyCompatible: hasMediaRecorder && hasCanvasCapture
+  };
+}
+  
 // Componenta principală pentru generarea reelurilor
 export default function GenerateReels() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -261,8 +296,6 @@ export default function GenerateReels() {
   const [videoDuration, setVideoDuration] = useState(5);
   const [videoEffect, setVideoEffect] = useState('fade');
   const [voiceoverChoice, setVoiceoverChoice] = useState<'yes' | 'no' | null>(null);
-  const [useFullContent, setUseFullContent] = useState(true);
-  const [cleanedContent, setCleanedContent] = useState('');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [processingVoiceover, setProcessingVoiceover] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState('ro-RO');
@@ -280,6 +313,13 @@ export default function GenerateReels() {
   const navLinkStyle = { color: '#333', textDecoration: 'none' };
   
   const reelContainerStyle = { display: 'flex', flexDirection: 'column' as const, gap: '20px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9fafb' };
+  
+  // Adăugăm state pentru a stoca blob-ul video și tipul MIME
+  const [reelVideoBlob, setReelVideoBlob] = useState<Blob | null>(null);
+  const [reelVideoType, setReelVideoType] = useState<string>('');
+  
+  // Declarăm mediaRecorder înainte de a-l utiliza, pentru a evita erori de referință
+  let mediaRecorder: MediaRecorder | null = null;
   
   // Funcție de logout
   const handleLogout = async () => {
@@ -327,87 +367,6 @@ export default function GenerateReels() {
   
     fetchArticles();
   }, []);
-  
-  // Procesează conținutul curățat pentru voiceover la selectarea unui articol
-  useEffect(() => {
-    if (selectedArticle && selectedArticle.content) {
-      const processed = selectedArticle.content
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&[^;]+;/g, ' ')
-        .replace(/https?:\/\/\S+/g, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-      const truncated = processed.length > 5000 ? processed.substring(0, 5000) + '...' : processed;
-      setCleanedContent(truncated);
-      console.log('Conținut curățat pentru voiceover:', truncated.substring(0, 100) + '...');
-    } else {
-      setCleanedContent('');
-    }
-  }, [selectedArticle]);
-  
-  // Funcție pentru a crea un reel simplu colorat (fallback)
-  const createSimpleColorReel = (canvas: HTMLCanvasElement | null, article: Article | null, customText: string) => {
-    if (!canvas) {
-      setError('Eroare internă: canvas-ul nu este disponibil');
-      setGenerating(false);
-      return;
-    }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setError('Eroare internă: contextul canvas-ului nu este disponibil');
-      setGenerating(false);
-      return;
-    }
-    const width = 1080, height = 1920;
-    canvas.width = width;
-    canvas.height = height;
-    const gradient = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, width);
-    gradient.addColorStop(0, '#0042FF');
-    gradient.addColorStop(1, '#001C6D');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-  
-    const text = customText || (article ? article.title : 'AiSport News');
-    ctx.font = 'bold 72px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-  
-    const wrapText = (text: string, maxWidth: number) => {
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = words[0];
-      for (let i = 1; i < words.length; i++) {
-        const word = words[i];
-        const lineWidth = ctx.measureText(currentLine + ' ' + word).width;
-        if (lineWidth < maxWidth) {
-          currentLine += ' ' + word;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
-        }
-      }
-      lines.push(currentLine);
-      return lines;
-    };
-  
-    const lines = wrapText(text, width - 100);
-    const lineHeight = 85;
-    let y = (height - lines.length * lineHeight) / 2;
-    lines.forEach(line => { ctx.fillText(line, width/2, y); y += lineHeight; });
-    ctx.font = 'bold 48px Arial, sans-serif';
-    ctx.fillText('AiSport', width/2, height - 100);
-    if (article && article.source) {
-      ctx.font = '32px Arial, sans-serif';
-      ctx.fillText('Sursa: ' + article.source, width/2, height - 60);
-    }
-  
-    setReelImage(canvas.toDataURL('image/jpeg', 0.9));
-    setGenerating(false);
-  };
   
   // Procesează reelul folosind imaginea ca fundal (pentru video)
   const procesareReelCuImagine = (defaultImg: HTMLImageElement) => {
@@ -539,23 +498,18 @@ export default function GenerateReels() {
     }
   };
   
-  // Previzualizare voiceover
+  // Declarăm funcția previewVoiceover fără a utiliza useFullContent
   const previewVoiceover = async () => {
     if (!reelImage) { setError('Generează mai întâi o imagine pentru reel.'); return; }
     setError(null); setProcessingVoiceover(true);
     try {
-      // Utilizăm conținutul complet sau o combinație titlu + conținut
+      // Utilizăm doar titlul sau text personalizat pentru voiceover
       let voiceoverText = '';
       if (customText?.trim()) {
         voiceoverText = customText.trim();
       } else if (selectedArticle) {
-        // Combinăm titlul cu partea inițială din conținut pentru un voiceover mai informativ
+        // Folosim doar titlul pentru voiceover
         voiceoverText = cleanTitle(selectedArticle.title);
-        
-        // Adăugăm conținut dacă useFullContent este activ
-        if (useFullContent && cleanedContent) {
-          voiceoverText = `${voiceoverText}. ${cleanedContent.substring(0, 1000)}`;
-        }
       }
       
       if (!voiceoverText) { throw new Error('Nu există text valid pentru voiceover.'); }
@@ -582,18 +536,13 @@ export default function GenerateReels() {
       if (voiceoverChoice === 'yes') {
         setProcessingVoiceover(true);
         try {
-          // Utilizăm conținutul complet sau o combinație titlu + conținut
+          // Utilizăm doar titlul sau text personalizat pentru voiceover, fără conținut
           let voiceoverText = '';
           if (customText?.trim()) {
             voiceoverText = customText.trim();
           } else if (selectedArticle) {
-            // Combinăm titlul cu partea inițială din conținut pentru un voiceover mai informativ
+            // Folosim doar titlul articolului pentru voiceover
             voiceoverText = cleanTitle(selectedArticle.title);
-            
-            // Adăugăm conținut dacă useFullContent este activ
-            if (useFullContent && cleanedContent) {
-              voiceoverText = `${voiceoverText}. ${cleanedContent.substring(0, 1000)}`;
-            }
           }
           
           if (!voiceoverText) { throw new Error('Nu există text valid pentru voiceover.'); }
@@ -657,25 +606,47 @@ export default function GenerateReels() {
       const imageData = ctx.getImageData(0, 0, width, height);
       console.log('Imagine încărcată în canvas pentru video');
 
-      // În loc să folosim MediaRecorder, vom folosi un video simplu cu audio
-      // și vom adăuga efecte direct pe canvas cu requestAnimationFrame
-      
-      // ABORDARE ALTERNATIVĂ: Facem o animație directă în canvas și oferim opțiunea de descărcare
-      const _frames: string[] = [];
+      // Configurare pentru înregistrarea video
       const fps = 30;
-      const _videoDurationMs = videoDuration * 1000;
       const totalFrames = Math.ceil(fps * videoDuration);
-      
       console.log(`Generăm ${totalFrames} cadre pentru video de ${videoDuration} secunde...`);
-      
-      // Funcție pentru a genera cadrele animației și a construi un GIF sau un video
-      const generateFrames = async () => {
-        const frameCount = 0;
-        const startTime = performance.now();
-        const framePromises: Promise<string>[] = [];
+
+      // Creăm un stream din canvas
+      let canvasStream: MediaStream;
+      try {
+        const compatibility = isBrowserCompatible();
+        console.log('Compatibilitate browser:', compatibility);
         
-        const generateFrame = (progress: number): Promise<string> => {
-          return new Promise(resolve => {
+        // Verificăm dacă browserul suportă captureStream pentru canvas
+        if (!compatibility.hasCanvasCapture) {
+          throw new Error('Browser-ul nu suportă captureStream pentru canvas');
+        }
+        
+        if (!compatibility.hasMediaRecorder) {
+          throw new Error('Browser-ul nu suportă MediaRecorder API');
+        }
+        
+        // Metoda standard
+        canvasStream = canvas.captureStream(fps);
+      } catch (err) {
+        console.error('Eroare la utilizarea captureStream sau MediaRecorder:', err);
+        // Nu putem folosi MediaRecorder, vom folosi o metodă alternativă
+        // Vom genera un video folosind o serie de capturi de ecran și le vom converti în format video
+        
+        setError('Browser-ul nu suportă înregistrarea directă a canvas-ului. Vom folosi o metodă alternativă.');
+        
+        // Funcția pentru captura și descărcarea cadrelor
+        const captureAndGenerateVideo = async () => {
+          const frames: string[] = [];
+          const totalFrames = Math.ceil(fps * videoDuration);
+          const interval = 1000 / fps;
+          
+          setError('Generăm cadrele video...');
+          
+          // Generăm toate cadrele
+          for (let i = 0; i < totalFrames; i++) {
+            const progress = i / (totalFrames - 1);
+            
             // Reset la imagine originală
             ctx.putImageData(imageData, 0, 0);
             
@@ -698,129 +669,245 @@ export default function GenerateReels() {
               }
             }
             
-            // Adăugăm text suplimentar pentru a indica progresul
-            ctx.fillStyle = 'rgba(255,255,255,0.7)';
-            ctx.fillRect(50, height - 60, width - 100, 40);
-            ctx.fillStyle = '#000';
-            ctx.font = '28px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${Math.round(progress * 100)}%`, width/2, height - 30);
+            // Capturăm cadrul
+            frames.push(canvas.toDataURL('image/jpeg', 0.85));
             
-            const frameDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            resolve(frameDataUrl);
-          });
+            // Actualizăm starea
+            if (i % 10 === 0) {
+              setError(`Generare video alternativă: ${Math.round(progress * 100)}% complet...`);
+              // Dăm un răgaz thread-ului UI să se actualizeze
+              await new Promise(r => setTimeout(r, 0));
+            }
+          }
+          
+          setError('Pregătim descărcarea cadrelor video...');
+          
+          // Pregătim un link pentru descărcare
+          const zip = new JSZip();
+          const videoFolder = zip.folder('video-frames');
+          
+          // Adăugăm toate cadrele în arhivă
+          for (let i = 0; i < frames.length; i++) {
+            const frame = frames[i];
+            const base64Data = frame.replace(/^data:image\/jpeg;base64,/, '');
+            videoFolder?.file(`frame-${i.toString().padStart(5, '0')}.jpg`, base64Data, {base64: true});
+          }
+          
+          // Adăugăm și audio dacă există
+          if (audioBlobForVideo) {
+            const audioBuffer = await audioBlobForVideo.arrayBuffer();
+            zip.file('audio.mp3', audioBuffer);
+          }
+          
+          // Adăugăm un fișier README cu instrucțiuni
+          zip.file('README.txt', `
+          Video generat pentru articolul: "${selectedArticle?.title || 'Custom'}"
+          
+          INSTRUCȚIUNI:
+          1. Acest arhivă conține ${frames.length} cadre video în folderul 'video-frames'
+          2. Poți folosi un software precum Adobe Premiere, DaVinci Resolve sau FFmpeg pentru a converti aceste cadre în video
+          3. Exemplu de comandă FFmpeg:
+             ffmpeg -framerate ${fps} -i video-frames/frame-%05d.jpg -c:v libx264 -pix_fmt yuv420p output.mp4
+          
+          4. Dacă există un fișier audio.mp3, poți adăuga și audio-ul:
+             ffmpeg -framerate ${fps} -i video-frames/frame-%05d.jpg -i audio.mp3 -c:v libx264 -c:a aac -pix_fmt yuv420p -shortest output.mp4
+          `);
+          
+          // Generăm și descărcăm arhiva
+          const content = await zip.generateAsync({type: 'blob'});
+          const url = URL.createObjectURL(content);
+          
+          // Salvăm pentru descărcare ulterioară
+          setReelVideo(url);
+          setReelVideoType('application/zip');
+          setReelVideoBlob(content);
+          
+          // Actualizăm starea
+          setError('Video generat cu succes! Arhiva ZIP cu cadrele video și audio este pregătită pentru descărcare.');
+          setProcessingVideo(false);
+          
+          // Ascundem canvas-ul
+          canvas.style.display = 'none';
         };
         
-        // Generăm toate cadrele în mod asincron pentru performanță
-        for (let i = 0; i < totalFrames; i++) {
-          const progress = i / (totalFrames - 1);
-          framePromises.push(generateFrame(progress));
+        // Pornim procesul alternativ
+        captureAndGenerateVideo();
+        return; // Ieșim din funcție - nu mai continuăm cu MediaRecorder
+      }
+
+      // Verificăm formatele suportate
+      const supportedTypes = getSupportedMimeTypes();
+      console.log('Formate de media suportate:', supportedTypes);
+      
+      // Setăm să primim date la fiecare 1 secundă, pentru a evita memoria insuficientă
+      const chunks: Blob[] = [];
+      
+      // Cream mediaRecorder ca variabilă
+      let mediaRecorder: MediaRecorder;
+
+      if (supportedTypes.length > 0) {
+        mediaRecorder = new MediaRecorder(canvasStream, {
+          mimeType: supportedTypes[0],
+          videoBitsPerSecond: 2500000
+        });
+      } else {
+        mediaRecorder = new MediaRecorder(canvasStream);
+      }
+      
+      // Configurăm mediaRecorder
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        const mimeType = mediaRecorder.mimeType || 'video/webm';
+        const videoBlob = new Blob(chunks, { type: mimeType });
+        const videoUrl = URL.createObjectURL(videoBlob);
+        
+        setReelVideo(videoUrl);
+        setReelVideoBlob(videoBlob);
+        setReelVideoType(mimeType);
+        setError(`Video generat cu succes! Format: ${mimeType}, Durată: ${videoDuration} secunde.`);
+        setProcessingVideo(false);
+        
+        canvas.style.display = 'none';
+      };
+
+      // Configurăm audio
+      if (audioBlobForVideo) {
+        try {
+          // Creăm un element audio pentru a obține stream-ul
+          const audioElement = new Audio();
+          const audioUrl = URL.createObjectURL(audioBlobForVideo);
+          audioElement.src = audioUrl;
+          audioElement.loop = false;
           
-          // Actualizăm starea de procesare la fiecare 10 cadre
-          if (i % 10 === 0) {
+          // Configurăm sincronizarea audio-video
+          mediaRecorder.onstart = () => {
+            console.log('MediaRecorder a început, pornind audio sincronizat');
+            audioElement.currentTime = 0;
+            audioElement.play().catch(err => {
+              console.error('Eroare la redarea audio sincronizat:', err);
+            });
+          };
+          
+          // Dacă browser-ul suportă combinarea track-urilor
+          if (audioElement.captureStream) {
+            const audioStream = audioElement.captureStream();
+            
+            if (audioStream.getAudioTracks().length > 0) {
+              // Combinăm track-urile audio și video
+              const combinedTracks = [
+                ...canvasStream.getVideoTracks(),
+                ...audioStream.getAudioTracks()
+              ];
+              
+              // Creăm un nou stream cu ambele track-uri
+              const combinedStream = new MediaStream(combinedTracks);
+              
+              // Recreăm mediaRecorder cu stream-ul combinat
+              if (supportedTypes.length > 0) {
+                mediaRecorder = new MediaRecorder(combinedStream, {
+                  mimeType: supportedTypes[0],
+                  videoBitsPerSecond: 2500000
+                });
+              } else {
+                mediaRecorder = new MediaRecorder(combinedStream);
+              }
+              
+              // Reconfigurăm event handler-ele
+              mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) {
+                  chunks.push(e.data);
+                }
+              };
+              
+              mediaRecorder.onstop = () => {
+                const mimeType = mediaRecorder.mimeType || 'video/webm';
+                const videoBlob = new Blob(chunks, { type: mimeType });
+                const videoUrl = URL.createObjectURL(videoBlob);
+                
+                setReelVideo(videoUrl);
+                setReelVideoBlob(videoBlob);
+                setReelVideoType(mimeType);
+                setError(`Video generat cu succes! Format: ${mimeType}, Durată: ${videoDuration} secunde.`);
+                setProcessingVideo(false);
+                
+                canvas.style.display = 'none';
+              };
+              
+              mediaRecorder.onstart = () => {
+                console.log('MediaRecorder combinat a început, pornind audio');
+                audioElement.currentTime = 0;
+                audioElement.play().catch(err => {
+                  console.error('Eroare la redarea audio în timpul înregistrării:', err);
+                });
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Eroare la configurarea audio:', error);
+        }
+      }
+      
+      // Funcție pentru animarea cadrelor și înregistrarea video
+      const animateAndRecord = async () => {
+        let frameCount = 0;
+        const startTime = performance.now();
+        
+        // Începem înregistrarea cu timeslice de 1000ms pentru a primi bucăți de date în timpul înregistrării
+        mediaRecorder?.start(1000);
+        
+        // Funcție pentru desenarea unui cadru la un moment dat
+        const drawFrame = (timestamp: number) => {
+          // Calculăm progresul animației (0-1)
+          const progress = Math.min(1, (timestamp - startTime) / (videoDuration * 1000));
+          frameCount++;
+          
+          // Reset la imagine originală
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Aplicăm efecte
+          if (videoEffect === 'zoom') {
+            const scale = 1 + progress * 0.1;
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.scale(scale, scale);
+            ctx.translate(-width/2, -height/2);
+            ctx.drawImage(img, 0, 0, width, height);
+            ctx.restore();
+          } else if (videoEffect === 'fade') {
+            if (progress < 0.2) { 
+              ctx.fillStyle = `rgba(0,0,0,${1 - progress*5})`;
+              ctx.fillRect(0,0,width,height);
+            } else if (progress > 0.8) {
+              ctx.fillStyle = `rgba(0,0,0,${(progress - 0.8)*5})`;
+              ctx.fillRect(0,0,width,height);
+            }
+          }
+          
+          // Putem adăuga text sau alte elemente vizuale
+          if (frameCount % 15 === 0) { // Actualizăm UI-ul mai rar pentru performanță
             setError(`Generare video: ${Math.round(progress * 100)}% complet...`);
           }
           
-          // Folosim un timeout pentru a nu bloca thread-ul principal
-          if (i % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
-          }
-        }
-        
-        // Așteptăm finalizarea generării tuturor cadrelor
-        const generatedFrames = await Promise.all(framePromises);
-        return generatedFrames;
-      };
-      
-      // Generăm toate cadrele
-      const allFrames = await generateFrames();
-      
-      // Creăm videoclipul fie cu ajutorul unui WebM video, fie oferim o alternativă prin descărcare
-      try {
-        console.log(`Toate cadrele generate (${allFrames.length} cadre), încercăm să asamblăm un video...`);
-        
-        // Creăm un element video pentru a afișa rezultatul
-        const videoElement = document.createElement('video');
-        videoElement.controls = true;
-        videoElement.width = 320;
-        videoElement.height = 640;
-        videoElement.style.maxWidth = '100%';
-        videoElement.style.margin = '20px auto';
-        videoElement.style.display = 'block';
-        videoElement.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
-        videoElement.loop = true;
-        videoElement.autoplay = true;
-        
-        // Folosim un hack pentru a crea un pseudo-video din imagini
-        const blob = await fetch(allFrames[0]).then(r => r.blob());
-        const videoBlob = new Blob([blob], { type: 'video/mp4' });
-        const videoUrl = URL.createObjectURL(videoBlob);
-        videoElement.src = videoUrl;
-        
-        // Adăugăm și audio dacă este disponibil
-        if (audioBlobForVideo) {
-          const audioElement = document.createElement('audio');
-          const audioUrl = URL.createObjectURL(audioBlobForVideo);
-          audioElement.src = audioUrl;
-          audioElement.loop = true;
-          audioElement.autoplay = true;
-          
-          // Sincronizăm audio cu video
-          videoElement.onplay = () => {
-            audioElement.play().catch(console.error);
-          };
-          videoElement.onpause = () => {
-            audioElement.pause();
-          };
-          
-          // Adăugăm audio în DOM dar ascuns
-          audioElement.style.display = 'none';
-          document.body.appendChild(audioElement);
-        }
-        
-        // Salvăm primul cadru ca imagine statică (pentru fallback)
-        const firstFrameUrl = allFrames[0];
-        setReelImage(firstFrameUrl); // Actualizăm imaginea cu primul cadru
-        
-        // Marcăm videoclipul ca disponibil (chiar dacă e doar o imagine + eventual audio)
-        setReelVideo(videoUrl);
-        
-        // Adăugăm o funcție specială pentru descărcarea animației
-        const downloadVideo = () => {
-          // Oferim o arhivă ZIP sau un link de descărcare pentru cadrele generate
-          const downloadLink = document.createElement('a');
-          downloadLink.href = firstFrameUrl;
-          downloadLink.download = `video-frame-${Date.now()}.jpg`;
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          document.body.removeChild(downloadLink);
-          
-          // Și descărcăm audio-ul separat dacă există
-          if (audioBlobForVideo) {
-            const audioLink = document.createElement('a');
-            const audioUrl = URL.createObjectURL(audioBlobForVideo);
-            audioLink.href = audioUrl;
-            audioLink.download = `audio-${Date.now()}.mp3`;
-            document.body.appendChild(audioLink);
-            audioLink.click();
-            document.body.removeChild(audioLink);
+          // Continuăm animația până când am terminat
+          if (progress < 1) {
+            requestAnimationFrame(drawFrame);
+          } else {
+            // Oprim înregistrarea când am terminat
+            mediaRecorder?.stop();
           }
         };
         
-        // Adăugăm mesaj explicativ pentru utilizator
-        setError(`Videoclipul a fost generat ca o serie de cadre + audio. 
-                 Click pe "Descarcă Video" pentru a obține fișierele necesare.`);
-      } catch (videoError) {
-        console.error('Eroare la asamblarea video:', videoError);
-        setError(`Nu s-a putut asambla videoclip complet. Vă oferim cadrul de bază și audio-ul pentru utilizare manuală.`);
-        
-        // Oferim cel puțin cadrul de bază ca o imagine
-        setReelVideo(allFrames[0]);
-      } finally {
-        // Ascundem canvas-ul după ce am terminat
-        canvas.style.display = 'none';
-        setProcessingVideo(false);
-      }
+        // Începem animația
+        requestAnimationFrame(drawFrame);
+      };
+
+      // Pornim procesul de animare și înregistrare
+      await animateAndRecord();
     } catch (error: any) {
       console.error('Error generating video:', error);
       setError(`Eroare la generarea video: ${error.message || 'Eroare necunoscută'}`);
@@ -860,27 +947,23 @@ export default function GenerateReels() {
   const handleVideoDownload = async () => {
     if (!reelVideo) { setError('Nu există videoclip de descărcat.'); return; }
     try {
-      if (reelVideo.startsWith('blob:')) {
-        const a = document.createElement('a');
-        a.href = reelVideo;
-        a.download = `reel-video-${Date.now()}.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { document.body.removeChild(a); }, 100);
-      } else {
-        let videoUrl = reelVideo.split('?')[0];
-        if (videoUrl.startsWith('/')) { videoUrl = `${window.location.protocol}//${window.location.hostname}:3006${videoUrl}`; }
-        const response = await fetch(videoUrl);
-        if (!response.ok) { throw new Error(`Error downloading video: ${response.status} ${response.statusText}`); }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `reel-video-${Date.now()}.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      const a = document.createElement('a');
+      a.href = reelVideo;
+      
+      // Determinăm extensia corectă în funcție de tipul MIME
+      let extension = 'webm';
+      if (reelVideoType) {
+        if (reelVideoType.includes('mp4')) {
+          extension = 'mp4';
+        } else if (reelVideoType.includes('zip')) {
+          extension = 'zip';
+        }
       }
+      
+      a.download = `reel-video-${selectedArticle?.id || 'custom'}-${Date.now()}.${extension}`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); }, 100);
     } catch (error) {
       console.error('Video download error:', error);
       setError(`Eroare la descărcarea videoclipului: ${error instanceof Error ? error.message : 'Eroare necunoscută'}`);
