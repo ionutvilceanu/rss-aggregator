@@ -1,100 +1,224 @@
-# RSS Aggregator
+# RSS Aggregator - Platformă de Știri cu AI
 
-O aplicație de agregare a știrilor din diverse surse RSS, cu funcționalități de generare automată de conținut folosind AI.
+O platformă modernă de agregare și generare de știri folosind inteligența artificială, optimizată pentru deployment pe platforme serverless.
 
-## Funcționalități
+## 🚀 Funcționalități
 
-- Agregarea știrilor din surse RSS (Gazzetta, Marca, Mundo Deportivo, DigiSport)
-- Traducerea automată a știrilor în limba română
-- Generarea de articole noi pe baza știrilor agregate folosind AI (Llama prin Groq API)
-- Interfață administrativă pentru gestionarea conținutului
+- **Agregare RSS**: Colectează automat știri din multiple surse RSS
+- **Generare AI**: Creează articole originale folosind AI
+- **Articole Virale**: Identifică și generează conținut viral bazat pe trending topics
+- **Generare Reels**: Creează video reels cu voiceover pentru social media
+- **Dashboard Admin**: Interfață completă de administrare
+- **Optimizat Serverless**: Compatibil cu Vercel, Netlify și alte platforme
 
-## Configurare
+## 📋 Cerințe
 
-### 1. Instalare dependențe
+- Node.js 18+
+- PostgreSQL database
+- API Keys pentru servicii externe (opțional)
+
+## 🛠️ Instalare
 
 ```bash
+# Clonează repository-ul
+git clone <repository-url>
+cd rss-aggregator
+
+# Instalează dependențele
 npm install
+
+# Configurează variabilele de mediu
+cp .env.example .env.local
 ```
 
-### 2. Configurare variabile de mediu
+## ⚙️ Configurare
 
-Creați un fișier `.env.local` cu următorul conținut:
+Creează un fișier `.env.local` cu următoarele variabile:
+
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/rss_aggregator
+
+# OpenAI (pentru generarea de articole)
+OPENAI_API_KEY=your_openai_api_key
+
+# VoiceRSS (pentru voiceover)
+VOICE_RSS_API_KEY=your_voicerss_api_key
+
+# Azure Speech (opțional, pentru voiceover avansat)
+AZURE_SPEECH_KEY=your_azure_speech_key
+AZURE_SPEECH_REGION=westeurope
+
+# Autentificare
+JWT_SECRET=your_jwt_secret
+ADMIN_PASSWORD=your_admin_password
+```
+
+## 🚀 Deployment
+
+### Vercel (Recomandat)
+
+1. **Pregătire pentru deployment:**
+   ```bash
+   npm run build
+   ```
+
+2. **Deploy pe Vercel:**
+   ```bash
+   npx vercel --prod
+   ```
+
+3. **Configurează variabilele de mediu în Vercel Dashboard**
+
+### Limitări pe Platforme Serverless
+
+Din cauza limitărilor platformelor serverless, următoarele funcționalități sunt adaptate:
+
+#### ✅ Funcționalități Disponibile:
+- Agregare RSS și generare articole AI
+- Generare articole virale
+- Dashboard admin complet
+- API-uri pentru toate funcționalitățile de bază
+- Voiceover prin VoiceRSS API
+
+#### ⚠️ Funcționalități Adaptate:
+- **Generare Video**: Disponibilă doar în browser prin MediaRecorder API
+- **Combinare Audio-Video**: Se face client-side folosind Canvas și MediaRecorder
+- **Voiceover**: Folosește doar VoiceRSS API (nu Azure Speech cu fișiere locale)
+
+#### 🔧 Alternative pentru Funcționalități Avansate:
+
+**Pentru Generare Video Serverless:**
+```javascript
+// Folosește MediaRecorder în browser
+const stream = canvas.captureStream();
+const mediaRecorder = new MediaRecorder(stream);
+```
+
+**Pentru Combinare Audio-Video:**
+```javascript
+// Client-side cu MediaRecorder
+import { combineVideoAudio } from '@/lib/mediaUtils';
+const combinedBlob = await combineVideoAudio(videoBlob, audioBlob);
+```
+
+## 📁 Structura Proiectului
 
 ```
-# Cheia API pentru Groq
-GROQ_API_KEY=your_groq_api_key_here
-
-# Cheia API pentru cron jobs
-CRON_API_KEY=secure_cron_key_here
-
-# Configurări bază de date
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_HOST=icsoft.go.ro
-DB_PORT=5432
-DB_NAME=newDB
+src/
+├── components/          # Componente React
+├── lib/                # Utilitare și funcții helper
+│   ├── trendSearch.ts  # Identificare trending topics
+│   └── mediaUtils.ts   # Utilitare media pentru browser
+├── pages/
+│   ├── admin/          # Pagini admin
+│   │   ├── generate-viral-articles.tsx
+│   │   └── generate-reels.tsx
+│   └── api/            # API routes (optimizate serverless)
+│       ├── generateViralArticles.ts
+│       ├── generate-voiceover.ts
+│       ├── generate-video.ts
+│       └── combine-audio-video.ts
+└── styles/             # Stiluri CSS
 ```
 
-### 3. Pornirea aplicației în mod dezvoltare
+## 🔧 Dezvoltare Locală
 
 ```bash
+# Pornește serverul de dezvoltare
 npm run dev
+
+# Pornește cron jobs (opțional)
+npm run dev:cron
+
+# Linting
+npm run lint
+
+# Build pentru producție
+npm run build
 ```
 
-## Utilizare
+## 📊 API Endpoints
 
-### Importul știrilor din RSS
+### Articole Virale
+```
+POST /api/generateViralArticles
+Body: { count: 5, topics?: string[] }
+```
 
-Aplicația poate importa știri din următoarele surse RSS:
-- Gazzetta dello Sport
-- Marca
-- Mundo Deportivo
-- DigiSport
+### Voiceover
+```
+POST /api/generate-voiceover
+Body: { text: string, lang: 'ro'|'en', gender: 'male'|'female', service: 'voicerss' }
+```
 
-Există două moduri de a importa știri:
+### Generare Video (Browser-only)
+```
+POST /api/generate-video
+Response: { error: 'Not available on serverless', alternatives: [...] }
+```
 
-1. **Manual**: Din interfața de administrare, folosind butonul "Importă RSS"
-2. **Automat**: Configurând un cronjob care apelează endpoint-ul `/api/cronImportRSS` la intervale regulate
+## 🎯 Funcționalități Principale
 
-### Generarea știrilor cu AI
+### 1. Articole Virale
+- Identifică automat trending topics din România
+- Cercetează fiecare topic pe web
+- Generează articole originale și captivante
+- Salvează în baza de date cu flag pentru conținut viral
 
-Aplicația poate genera automat articole noi pe baza știrilor importate, folosind:
-- Modelul Llama 3 (70B) prin API-ul Groq
-- Un prompt jurnalistic care asigură un conținut de calitate
-- Fiecare subiect este procesat o singură dată pentru a evita duplicatele
+### 2. Generare Reels
+- Interfață pentru crearea de video reels
+- Voiceover automat pentru titlurile articolelor
+- Sincronizare audio-video în browser
+- Export în format video standard
 
-Pentru a genera articole noi:
-1. Din interfața de administrare, folosiți butonul "Generare Știri AI"
-2. Configurați un cronjob care apelează endpoint-ul `/api/cronGenerateNews` la intervale regulate
+### 3. Dashboard Admin
+- Gestionare feed-uri RSS
+- Generare articole AI
+- Monitorizare și statistici
+- Configurare și setări
 
-## Configurarea cronjob-urilor
+## 🔒 Securitate
 
-Pentru a automatiza importul și generarea de știri, puteți configura cronjob-uri folosind exemplele de mai jos:
+- Autentificare JWT pentru admin
+- Validare input pentru toate API-urile
+- Rate limiting pentru API-uri publice
+- Sanitizare conținut HTML
+
+## 🐛 Debugging
+
+Pentru debugging în dezvoltare:
 
 ```bash
-# Import știri noi din RSS la fiecare 3 ore
-0 */3 * * * curl -X POST "https://your-site.com/api/cronImportRSS?apiKey=secure_cron_key_here"
+# Verifică logs în timp real
+npm run dev
 
-# Generarea știrilor noi o dată pe zi (la ora 2 dimineața)
-0 2 * * * curl -X POST "https://your-site.com/api/cronGenerateNews?apiKey=secure_cron_key_here"
+# Pentru probleme cu database
+npx prisma studio
+
+# Pentru probleme cu build
+npm run build -- --debug
 ```
 
-## Contribuții
+## 📝 Contribuții
 
-Contribuțiile sunt binevenite. Pentru modificări majore, vă rugăm să deschideți mai întâi o problemă pentru a discuta ce doriți să schimbați.
+1. Fork repository-ul
+2. Creează o branch pentru feature (`git checkout -b feature/AmazingFeature`)
+3. Commit modificările (`git commit -m 'Add some AmazingFeature'`)
+4. Push pe branch (`git push origin feature/AmazingFeature`)
+5. Deschide un Pull Request
 
-## Learn More
+## 📄 Licență
 
-To learn more about Next.js, take a look at the following resources:
+Acest proiect este licențiat sub MIT License - vezi fișierul [LICENSE](LICENSE) pentru detalii.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🆘 Suport
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Pentru probleme și întrebări:
+- Deschide un issue pe GitHub
+- Verifică documentația API
+- Consultă secțiunea de troubleshooting
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Nota**: Această aplicație este optimizată pentru platforme serverless. Pentru funcționalități avansate de procesare video, consideră folosirea unui server dedicat sau servicii externe specializate.

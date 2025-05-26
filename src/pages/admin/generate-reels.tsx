@@ -319,7 +319,7 @@ export default function GenerateReels() {
   const [reelVideoType, setReelVideoType] = useState<string>('');
   
   // Declarăm mediaRecorder înainte de a-l utiliza, pentru a evita erori de referință
-  let mediaRecorder: MediaRecorder | null = null;
+  const mediaRecorder: MediaRecorder | null = null;
   
   // Funcție de logout
   const handleLogout = async () => {
@@ -1040,7 +1040,9 @@ export default function GenerateReels() {
         console.error(`Eroare la încărcarea imaginii: ${imageUrl}`);
         
         // Fallback la un reel simplu cu gradient
-        createSimpleColorReel(canvasRef.current, selectedArticle, customText);
+        if (canvasRef.current && selectedArticle) {
+          procesareReelCuImagine(new Image()); // Folosim o imagine goală pentru gradient
+        }
       };
       
       // Încercăm prima dată să încărcăm direct

@@ -193,7 +193,7 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
     }
 
     const data = await response.json();
-    let generatedText = data.choices[0]?.message?.content || '';
+    const generatedText = data.choices[0]?.message?.content || '';
     
     // Extragem titlul și conținutul din răspuns
     let title = '';

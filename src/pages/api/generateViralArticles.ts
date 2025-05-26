@@ -221,12 +221,14 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
     }
 
     const data = await response.json();
-    let generatedText = data.choices[0]?.message?.content || '';
+    const generatedText = data.choices[0]?.message?.content || '';
+    
+    console.log('Răspuns primit de la API:', generatedText.substring(0, 200));
     
     // Extragem titlul, conținutul și sugestia de imagine din răspuns
     let title = '';
     let content = '';
-    let imageUrl = '';
+    const imageUrl = '';
 
     const titleMatch = generatedText.match(/===TITLU===\s*([\s\S]*?)(?=\s*===CONȚINUT===|$)/);
     if (titleMatch && titleMatch[1]) {
@@ -241,13 +243,6 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
     } else {
       // Dacă nu găsim formatul, folosim tot textul generat
       content = generatedText.replace(/===TITLU===[\s\S]*?===CONȚINUT===\s*/g, '').trim();
-    }
-
-    const imageMatch = generatedText.match(/===IMAGINE===\s*([\s\S]*)/);
-    if (imageMatch && imageMatch[1]) {
-      const imageDescription = imageMatch[1].trim();
-      // Aici am putea adăuga o logică pentru a genera un URL real pentru o imagine
-      // bazată pe descriere, folosind un serviciu precum Unsplash sau DALL-E
     }
 
     // Funcție pentru curățarea oricăror meta-comentarii

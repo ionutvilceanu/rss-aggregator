@@ -92,8 +92,8 @@ export default function GenerateViralArticles() {
               Configurează Generarea
             </Typography>
             
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+              <Box sx={{ flex: 1 }}>
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     Subiecte Custom (opțional)
@@ -144,9 +144,9 @@ export default function GenerateViralArticles() {
                     </Alert>
                   )}
                 </Box>
-              </Grid>
+              </Box>
               
-              <Grid item xs={12} md={6}>
+              <Box sx={{ flex: 1 }}>
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     Opțiuni
@@ -173,8 +173,8 @@ export default function GenerateViralArticles() {
                     label="Forțează regenerarea (ignoră verificarea de articole deja existente)"
                   />
                 </Box>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
             
             <Divider sx={{ my: 3 }} />
             
@@ -258,7 +258,7 @@ export default function GenerateViralArticles() {
               
               {result.articles.length === 0 && (
                 <Alert severity="info">
-                  Nu s-au generat articole noi. Încercați să folosiți opțiunea "Forțează regenerarea".
+                  Nu s-au generat articole noi. Încercați să folosiți opțiunea &quot;Forțează regenerarea&quot;.
                 </Alert>
               )}
             </List>

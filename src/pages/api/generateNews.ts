@@ -310,7 +310,7 @@ Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, 
     }
 
     const data = await response.json();
-    let searchText = data.choices[0]?.message?.content || '';
+    const searchText = data.choices[0]?.message?.content || '';
     
     console.log(`Răspuns brut de la API: "${searchText.substring(0, 150)}..."`);
     
@@ -479,7 +479,7 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
 [Scrie aici conținutul articolului]`;
 
     // API key pentru Groq
-    const apiKey = process.env.GROQ_API_KEY || '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';
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
     console.log("Generăm articolul final cu informațiile obținute...");
     
@@ -514,7 +514,7 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
     }
 
     const data = await response.json();
-    let generatedText = data.choices[0]?.message?.content || '';
+    const generatedText = data.choices[0]?.message?.content || '';
     
     // Extragem titlul și conținutul din răspuns folosind delimitatorii specifici
     let title = '';

@@ -141,7 +141,7 @@ TITLU: [Titlu captivant care subliniază actualitatea știrii]
 CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
     // API key pentru Groq cu modelul DeepSeek
-    const apiKey = process.env.GROQ_API_KEY || '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';
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
     console.log("Folosim Groq cu modelul DeepSeek pentru generarea articolului...");
     

@@ -40,50 +40,69 @@ const nextConfig = {
       'images.unsplash.com',
       'unsplash.com',
       
-      // Adăugați domeniul serverului vostru de hosting aici
+      // Pentru deployment
       'vercel.app',
       'localhost',
-      
-      // Pentru a permite orice domeniu (ATENȚIE: folosiți doar în dezvoltare sau pentru testare)
-      // '*',
     ],
-    // Opțional: Permite URL-uri de imagini generate dinamic
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', // Permite orice subdomeniu
+        hostname: '**',
       },
     ],
   },
+  // Eliminăm header-ele problematice pentru deployment
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: '/api/(.*)',
         headers: [
           {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
           },
           {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
           },
         ],
       },
     ];
   },
-  // Configurăm optimizarea pentru a permite fișierele mp4 în directorul public/tmp
-  webpack(config) {
-    config.module.rules.push({
-      test: /\.(mp4)$/,
-      type: 'asset/resource',
-      generator: {
-        filename: 'static/chunks/[path][name].[hash][ext]'
-      },
+  // Optimizăm webpack pentru deployment
+  webpack: (config, { isServer }) => {
+    // Excludem dependențele problematice din bundle-ul client
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+        child_process: false,
+      };
+    }
+
+    // Excludem modulele native din bundle
+    config.externals = config.externals || [];
+    config.externals.push({
+      'fluent-ffmpeg': 'commonjs fluent-ffmpeg',
+      'ffmpeg-static': 'commonjs ffmpeg-static',
     });
 
     return config;
-  }
+  },
+  // Configurări pentru deployment pe Vercel
+  serverExternalPackages: [
+    'ffmpeg-static',
+    'fluent-ffmpeg',
+    '@ffmpeg/ffmpeg',
+    '@ffmpeg/core',
+    'formidable'
+  ],
 }
 
 module.exports = nextConfig 

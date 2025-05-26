@@ -15,9 +15,6 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
-    "@ffmpeg/core": "^0.12.10",
-    "@ffmpeg/ffmpeg": "^0.12.6",
-    "@ffmpeg/util": "^0.12.2",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
     "axios": "^1.8.4",
@@ -26,12 +23,8 @@
     "cookies-next": "^5.1.0",
     "dotenv": "^16.0.0",
     "edge-tts": "^1.0.1",
-    "ffmpeg-static": "^5.2.0",
-    "formidable": "^3.5.2",
-    "get-audio-duration": "^4.0.1",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
-    "micro": "^10.0.1",
     "microsoft-cognitiveservices-speech-sdk": "^1.43.1",
     "next": "latest",
     "node-cron": "^3.0.2",
@@ -47,7 +40,6 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/cookie": "^0.6.0",
-    "@types/formidable": "^3.4.5",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "latest",
     "@types/node-fetch": "^2.6.12",
@@ -59,5 +51,14 @@
     "eslint-config-next": "latest",
     "tailwindcss": "^4",
     "typescript": "latest"
+  },
+  "optionalDependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.6",
+    "@ffmpeg/util": "^0.12.2",
+    "ffmpeg-static": "^5.2.0",
+    "formidable": "^3.5.2",
+    "get-audio-duration": "^4.0.1",
+    "micro": "^10.0.1"
   }
 }
