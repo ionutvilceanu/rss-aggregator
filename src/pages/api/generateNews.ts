@@ -1,7 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { Pool } from 'pg';
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
 import { searchSportsNews, searchWeb } from '../../lib/webSearch';
+import { generateArticleWithGemini } from '../../lib/geminiAPI';
+import { extractTeamNames, findPrimaryTeam, getTeamLeague } from '../../lib/ner';
+import { fetchCompetitionStandings, getCompetitionCodeByTeam } from '../../lib/footballData';
 
 interface Article {
   id?: number;
@@ -196,14 +200,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generatedArticles = await Promise.all(
       translatedArticles.map(async (article) => {
         try {
-          // Etapa 1: Analiza articolului original și solicitarea de informații relevante
-          const searchQueries = await generateSearchQueries(article);
-          
+          // Etapa 1: Generarea întrebărilor de căutare
+          const searchQueries = await generateSearchQueries(article.title, article.content);
+
           // Etapa 2: Efectuarea căutărilor și obținerea rezultatelor
           const searchResults = await performTargetedSearches(searchQueries);
+
+          // Etapa 2.5: Extragerea echipelor și obținerea informațiilor factuale
+          const teams = extractTeamNames(article.title + ' ' + article.content);
+          const facts: string[] = [];
           
-          // Etapa 3: Generarea articolului final cu informațiile obținute
-          const generatedArticle = await generateFinalArticle(article, searchResults, customDate);
+          if (teams.length > 0) {
+            console.log('Echipe găsite:', teams);
+            
+            // Găsește echipa principală
+            const primaryTeam = findPrimaryTeam(article.title + ' ' + article.content);
+            
+            if (primaryTeam) {
+              console.log('Echipa principală:', primaryTeam);
+              
+              // Determină codul competiției
+              const competitionCode = getCompetitionCodeByTeam(primaryTeam);
+              
+              if (competitionCode) {
+                try {
+                  console.log(`Obțin clasament pentru competiția: ${competitionCode}`);
+                  const standings = await fetchCompetitionStandings(competitionCode);
+                  
+                  if (standings.length > 0) {
+                    // Caută echipa în clasament
+                    const teamStanding = standings.find(standing => 
+                      standing.team.toLowerCase().includes(primaryTeam.toLowerCase()) ||
+                      primaryTeam.toLowerCase().includes(standing.team.toLowerCase())
+                    );
+                    
+                    if (teamStanding) {
+                      const league = getTeamLeague(primaryTeam) || 'liga europeană';
+                      facts.push(`- ${teamStanding.team} se află pe locul ${teamStanding.position} în ${league}, cu ${teamStanding.points} puncte din ${teamStanding.playedGames} meciuri jucate (sursă: Football-Data.org)`);
+                      console.log('Informații factuale adăugate:', facts[facts.length - 1]);
+                    } else {
+                      console.log('Echipa nu a fost găsită în clasament');
+                    }
+                  }
+                } catch (error) {
+                  console.error('Eroare la obținerea clasamentului:', error);
+                  // Continuă fără informații factuale în caz de eroare
+                }
+              } else {
+                console.log('Nu s-a putut determina codul competiției pentru echipa:', primaryTeam);
+              }
+            }
+          }
+
+          // Etapa 3: Generarea articolului final cu informațiile obținute și datele factuale
+          const factualInfo = facts.join('\n');
+          const generatedArticle = await generateFinalArticle(article, searchResults, factualInfo, customDate);
           
           // Salvează noul articol în baza de date
           const insertResult = await pool.query(
@@ -241,17 +292,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 // Funcție pentru analiza articolului și generarea de query-uri de căutare
-async function generateSearchQueries(article: Article): Promise<string[]> {
+async function generateSearchQueries(title: string, content: string): Promise<string[]> {
   try {
-    console.log(`Analizăm articolul "${article.title}" pentru a determina căutările necesare...`);
+    console.log(`Analizăm articolul "${title}" pentru a determina căutările necesare...`);
     
     // Verificăm dacă avem suficient conținut pentru analiză
-    if (!article.title || !article.content || article.content.length < 10) {
+    if (!title || !content || content.length < 10) {
       console.log("Conținut insuficient pentru analiză, generăm query-uri de bază");
       return [
-        `${article.title} statistici echipe loturi actuale`,
-        `${article.title} ultimele rezultate meciuri recente`,
-        `${article.title} clasament competiție actuală`
+        `${title} statistici echipe loturi actuale`,
+        `${title} ultimele rezultate meciuri recente`,
+        `${title} clasament competiție actuală`
       ];
     }
     
@@ -260,11 +311,11 @@ async function generateSearchQueries(article: Article): Promise<string[]> {
 
 Analizează următorul articol sportiv și identifică 4-5 cereri de căutare specifice care ar îmbunătăți considerabil articolul.
 
-Titlul articolului: "${article.title}"
+Titlul articolului: "${title}"
 
 Conținutul articolului: 
 """
-${article.content}
+${content}
 """
 
 INSTRUCȚIUNI IMPORTANTE:
@@ -279,7 +330,7 @@ Răspunde DOAR cu lista de cereri de căutare, una pe linie, fără numerotare s
 Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, competiție și context clar.`;
 
     // API key pentru Groq
-    const apiKey = process.env.GROQ_API_KEY || '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';
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
     // Facem cererea către Groq API pentru analiza inițială - folosind modelul mai avansat
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -289,7 +340,7 @@ Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, 
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', 
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct', 
         messages: [
           {
             role: 'system',
@@ -331,16 +382,16 @@ Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, 
       console.log("Nu s-au generat query-uri valide din răspuns, folosim query-uri implicite");
       
       // Extragem potențiale entități din titlu pentru query-uri implicite mai relevante
-      const titleWords = article.title.split(' ');
+      const titleWords = title.split(' ');
       const potentialEntities = titleWords.filter(word => word.length > 3 && word[0] === word[0].toUpperCase());
-      const entityQuery = potentialEntities.length > 0 ? potentialEntities.join(' ') : article.title;
+      const entityQuery = potentialEntities.length > 0 ? potentialEntities.join(' ') : title;
       
       // Query-uri implicite în caz că nu avem rezultate
       searchQueries = [
         `${entityQuery} lot actual jucători`, 
-        `${article.title} ultimele 5 rezultate`, 
-        `${article.title} clasament actual competiție`,
-        `${article.title} statistici recente meciuri`
+        `${title} ultimele 5 rezultate`, 
+        `${title} clasament actual competiție`,
+        `${title} statistici recente meciuri`
       ];
     }
     
@@ -354,15 +405,15 @@ Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, 
     // În caz de eroare, returnăm mai multe query-uri de căutare implicite bazate pe titlu
     
     // Încercăm să extragem potențiale entități din titlu
-    const titleWords = article.title.split(' ');
+    const titleWords = title.split(' ');
     const potentialEntities = titleWords.filter(word => word.length > 3 && word[0] === word[0].toUpperCase());
-    const entityQuery = potentialEntities.length > 0 ? potentialEntities.join(' ') : article.title;
+    const entityQuery = potentialEntities.length > 0 ? potentialEntities.join(' ') : title;
     
     const defaultQueries = [
       `${entityQuery} lot actual jucători echipă`, 
-      `${article.title} ultimele rezultate meciuri`, 
-      `${article.title} clasament actualizat`,
-      `${article.title} statistici importante sportive`
+      `${title} ultimele rezultate meciuri`, 
+      `${title} clasament actualizat`,
+      `${title} statistici importante sportive`
     ];
     console.log(`Folosim ${defaultQueries.length} query-uri implicite:`, defaultQueries);
     return defaultQueries;
@@ -407,79 +458,45 @@ async function performTargetedSearches(searchQueries: string[]): Promise<string>
 
 // Funcție pentru generarea articolului final cu informațiile obținute
 async function generateFinalArticle(
-  article: Article, 
+  article: Article,
   searchResults: string,
+  factualInfo: string = '',
   customDate: Date | null = null
 ): Promise<{ title: string; content: string }> {
   try {
     // Data actuală sau personalizată pentru context temporal
     const currentDate = customDate || new Date();
-    const formattedDate = currentDate.toLocaleDateString('ro-RO', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
+    const formattedDate = currentDate.toLocaleDateString('ro-RO', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
-    
-    // Calculăm timpul trecut de la publicarea articolului original
-    const pubDate = new Date(article.pub_date);
-    const timeDiff = currentDate.getTime() - pubDate.getTime();
-    const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
-    
-    let temporalContext = "";
-    if (daysDiff === 0) {
-      temporalContext = "Acest articol a fost publicat astăzi.";
-    } else if (daysDiff === 1) {
-      temporalContext = "Acest articol a fost publicat ieri.";
-    } else if (daysDiff < 0) {
-      temporalContext = `Acest articol este programat să fie publicat în ${Math.abs(daysDiff)} zile.`;
-    } else {
-      temporalContext = `Acest articol a fost publicat acum ${daysDiff} zile.`;
-    }
 
-    // Extrage domeniul din URL-ul sursei
-    let sourceDomain = "";
-    try {
-      const urlObj = new URL(article.source_url);
-      sourceDomain = urlObj.hostname.replace('www.', '');
-    } catch (e) {
-      sourceDomain = "sursa originală";
-    }
-    
-    // Construim prompt-ul pentru generarea articolului final
-    const finalPrompt = `Ești un jurnalist sportiv profesionist. Sarcina ta este să rescrii și să îmbunătățești un articol sportiv folosind informații suplimentare.
+    // Construiește prompt-ul pentru LLM
+    const prompt = `Ești un jurnalist profesionist specializat în știri sportive și generale. Trebuie să creezi un articol complet și bine documentat în limba română.
 
 ARTICOL ORIGINAL:
-"${article.title}"
+Titlu: ${article.title}
+Conținut: ${article.content}
 
-${article.content.replace(/###/g, '')}
+${factualInfo ? `INFORMAȚII FACTUALE:
+${factualInfo}
 
-INFORMAȚII ADIȚIONALE:
+` : ''}INFORMAȚII SUPLIMENTARE:
 ${searchResults}
 
-CONTEXT:
-- Data publicării: ${pubDate.toLocaleDateString('ro-RO')}
-- ${temporalContext}
-- Sursa originală: ${sourceDomain}
+CERINȚE:
+1. Creează un titlu captivant și informativ în română
+2. Scrie un articol complet de 400-600 cuvinte în română
+3. Folosește informațiile suplimentare pentru a îmbogăți conținutul
+${factualInfo ? '4. Integrează informațiile factuale în mod natural în articol și citează sursa (Football-Data.org) când folosești aceste date\n' : ''}5. Păstrează un ton jurnalistic profesionist
+6. Structurează articolul cu paragrafe clare
+7. Data de referință pentru context temporal: ${formattedDate}
 
-CERINȚE PENTRU ARTICOLUL NOU:
-- Păstrează toate datele și statisticile din articolul original
-- Menține numele exacte ale echipelor și jucătorilor
-- Adaugă informații relevante din căutările web
-- Structurează articolul cu introducere și concluzie clară
-- Folosește un limbaj profesional, jurnalistic, captivant
-- Extinde articolul la minimum 600 de cuvinte
-- Menționează sursa când adaugi informații noi
-
-RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
-
-===TITLU===
-[Scrie aici un titlu captivant]
-
-===CONȚINUT===
-[Scrie aici conținutul articolului]`;
+Returnează doar titlul și conținutul articolului, fără alte comentarii.`;
 
     // API key pentru Groq
-    const apiKey = process.env.GROQ_API_KEY || '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';
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
     console.log("Generăm articolul final cu informațiile obținute...");
     
@@ -491,7 +508,7 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek-r1-distill-llama-70b',  // Model complet pentru generarea finală
+        model: 'meta-llama/llama-4-maverick-17b-128e-instruct',  // Model complet pentru generarea finală
         messages: [
           {
             role: 'system',
@@ -499,7 +516,7 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
           },
           {
             role: 'user',
-            content: finalPrompt
+            content: prompt
           }
         ],
         temperature: 0.5,
@@ -694,7 +711,7 @@ CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, mi
 IMPORTANT: NU trebuie sa imi dai strategia ta de scriere a articolului, doar sa imi scrii articolul gata de publicat.`;
 
     // API key pentru Groq
-    const apiKey = process.env.GROQ_API_KEY || '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';
+    const apiKey = process.env.GROQ_API_KEY || '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';
     
     console.log("Folosim Groq cu modelul LLama 3 pentru generarea articolului...");
     
@@ -707,7 +724,7 @@ IMPORTANT: NU trebuie sa imi dai strategia ta de scriere a articolului, doar sa 
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',  
+        model: 'mistral-saba-24b',  
         messages: [
           {
             role: 'system',
