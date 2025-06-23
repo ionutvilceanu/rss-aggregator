@@ -41,11 +41,18 @@ export default function Home() {
 
   const fetchArticles = useCallback(async (page: number = 1) => {
     try {
-      page > 1 ? setLoadingMore(true) : setLoading(true);
+      if (page > 1) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
       const res = await fetch(`/api/fetchRSS?page=${page}&limit=${pagination.limit}`);
       const data = await res.json();
-      if (page > 1) setArticles(prev => [...prev, ...data.articles]);
-      else setArticles(data.articles);
+      if (page > 1) {
+        setArticles(prev => [...prev, ...data.articles]);
+      } else {
+        setArticles(data.articles);
+      }
       setPagination(data.pagination);
     } catch (err) {
       console.error(err);
@@ -71,12 +78,6 @@ export default function Home() {
         <meta name="description" content="Cele mai importante știri sportive din România și străinătate. Fotbal, tenis, baschet, Formula 1 și multe altele. Actualizat în timp real." />
         <meta name="keywords" content="sport, știri sportive, fotbal, tenis, baschet, Formula 1, Liga 1, Champions League" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -870,7 +871,6 @@ export default function Home() {
 
         @media (min-width: 1024px) {
           .featured-layout {
-            // grid-template-columns: 2fr 1fr;
             grid-template-columns: repeat(2, minmax(100px, 1fr));
             gap: 2rem;
           }
