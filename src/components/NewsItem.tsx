@@ -72,8 +72,8 @@ const NewsItem: React.FC<NewsItemProps> = ({ article, featured = false }) => {
       <div className="card-container">
         {/* Image Section */}
         <div className="image-section">
-          <Image
-            src={article.image || '/default.png'}
+        <Image
+          src={article.image || '/default.png'}
             alt={cleanTitle(article.title)}
             width={featured ? 800 : 400}
             height={featured ? 500 : 250}
@@ -116,7 +116,7 @@ const NewsItem: React.FC<NewsItemProps> = ({ article, featured = false }) => {
               </svg>
               2 min
             </div>
-          </div>
+      </div>
 
           <Link href={href} className="article-link">
             <h3 className="article-title">{cleanTitle(article.title)}</h3>
@@ -135,22 +135,41 @@ const NewsItem: React.FC<NewsItemProps> = ({ article, featured = false }) => {
                 <path d="M5 12h14"/>
                 <path d="M12 5l7 7-7 7"/>
               </svg>
-            </Link>
-            <div className="engagement-metrics">
-              <span className="metric">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-                {Math.floor(Math.random() * 1000) + 100}
-              </span>
-              <span className="metric">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                {Math.floor(Math.random() * 50) + 5}
-              </span>
-            </div>
+          </Link>
+<div className="engagement-metrics">
+  <span className="metric">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+    {(() => {
+      if (typeof window === 'undefined') return '';
+      const key = `views_${article.id ?? encodeURIComponent(article.link)}`;
+      let v = sessionStorage.getItem(key);
+      if (!v) {
+        v = (Math.floor(Math.random() * 1000) + 100).toString();
+        sessionStorage.setItem(key, v);
+      }
+      return v;
+    })()}
+  </span>
+  <span className="metric">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    {(() => {
+      if (typeof window === 'undefined') return '';
+      const key = `comments_${article.id ?? encodeURIComponent(article.link)}`;
+      let c = sessionStorage.getItem(key);
+      if (!c) {
+        c = (Math.floor(Math.random() * 50) + 5).toString();
+        sessionStorage.setItem(key, c);
+      }
+      return c;
+    })()}
+  </span>
+</div>
+
           </div>
         </div>
       </div>
