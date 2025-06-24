@@ -28,16 +28,12 @@ function formatDate(dateString: string): string {
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
-  if (diffDays === 1) {
+  if (diffDays === 2) {
     return 'Ieri';
-  } else if (diffDays < 7) {
+  } else if (diffDays < 7 && diffDays > 1) {
     return `Acum ${diffDays} zile`;
   } else {
-    return date.toLocaleDateString('ro-RO', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+    return 'Azi';
   }
 }
 
