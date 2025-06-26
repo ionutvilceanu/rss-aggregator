@@ -177,4 +177,292 @@ export function getCompetitionCodeByTeam(teamName: string): string | null {
   }
   
   return null;
-} 
+}
+
+// Lista completă cu toate competițiile de fotbal
+export const allFootballCompetitions = [
+  // Competiții europene majore
+  {
+    id: 'uefa-champions-league',
+    name: 'UEFA Champions League',
+    shortName: 'UCL',
+    country: 'Europe',
+    type: 'continental',
+    season: '2024-2025',
+    logo: '/logos/ucl.png',
+    color: '#003B7F',
+    participants: 36,
+    format: 'group-knockout',
+    code: 'CL'
+  },
+  {
+    id: 'uefa-europa-league',
+    name: 'UEFA Europa League',
+    shortName: 'UEL',
+    country: 'Europe',
+    type: 'continental',
+    season: '2024-2025',
+    logo: '/logos/uel.png',
+    color: '#FF6200',
+    participants: 36,
+    format: 'group-knockout',
+    code: 'EL'
+  },
+  {
+    id: 'uefa-conference-league',
+    name: 'UEFA Europa Conference League',
+    shortName: 'UECL',
+    country: 'Europe',
+    type: 'continental',
+    season: '2024-2025',
+    logo: '/logos/uecl.png',
+    color: '#FF6B00',
+    participants: 184,
+    format: 'group-knockout',
+    startDate: '2024-07-11',
+    endDate: '2025-05-28'
+  },
+
+  // Ligi naționale majore
+  {
+    id: 'premier-league',
+    name: 'Premier League',
+    shortName: 'PL',
+    country: 'England',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/premier-league.png',
+    color: '#3D195B',
+    participants: 20,
+    format: 'round-robin',
+    code: 'PL'
+  },
+  {
+    id: 'la-liga',
+    name: 'LaLiga',
+    shortName: 'La Liga',
+    country: 'Spain',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/la-liga.png',
+    color: '#FF6900',
+    participants: 20,
+    format: 'round-robin',
+    code: 'PD'
+  },
+  {
+    id: 'serie-a',
+    name: 'Serie A',
+    shortName: 'Serie A',
+    country: 'Italy',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/serie-a.png',
+    color: '#004B87',
+    participants: 20,
+    format: 'round-robin',
+    code: 'SA'
+  },
+  {
+    id: 'bundesliga',
+    name: 'Bundesliga',
+    shortName: 'Bundesliga',
+    country: 'Germany',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/bundesliga.png',
+    color: '#D20515',
+    participants: 18,
+    format: 'round-robin',
+    code: 'BL1'
+  },
+  {
+    id: 'ligue-1',
+    name: 'Ligue 1',
+    shortName: 'Ligue 1',
+    country: 'France',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/ligue1.png',
+    color: '#003A70',
+    participants: 18,
+    format: 'round-robin',
+    code: 'FL1'
+  },
+
+  // Liga României
+  {
+    id: 'romania-liga-1',
+    name: 'Liga 1 România',
+    shortName: 'Liga 1',
+    country: 'Romania',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/liga1-romania.png',
+    color: '#FFD700',
+    participants: 16,
+    format: 'round-robin',
+    startDate: '2024-07-15',
+    endDate: '2025-05-25',
+    rounds: 30,
+    teams: [
+      'FCSB', 'CFR Cluj', 'Universitatea Craiova', 'Rapid București',
+      'Sepsi OSK', 'UTA Arad', 'Dinamo București', 'Petrolul Ploiești',
+      'FC Botoșani', 'Oțelul Galați', 'Poli Iași', 'Hermannstadt',
+      'FC Voluntari', 'Unirea Slobozia', 'Gloria Buzău', 'AFC Hermannstadt'
+    ]
+  },
+
+  // Competiții internaționale
+  {
+    id: 'fifa-club-world-cup-2025',
+    name: 'FIFA Club World Cup 2025',
+    shortName: 'FIFA CWC 2025',
+    country: 'International',
+    type: 'international',
+    season: '2024-2025',
+    logo: '/logos/fifa-cwc.png',
+    color: '#326295',
+    participants: 32,
+    format: 'knockout',
+    startDate: '2025-06-15',
+    endDate: '2025-07-13'
+  },
+
+  // Alte ligi europene importante
+  {
+    id: 'eredivisie',
+    name: 'Eredivisie',
+    shortName: 'Eredivisie',
+    country: 'Netherlands',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/eredivisie.png',
+    color: '#FF6200',
+    participants: 18,
+    format: 'round-robin'
+  },
+  {
+    id: 'primeira-liga',
+    name: 'Primeira Liga',
+    shortName: 'Liga Portugal',
+    country: 'Portugal',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/primeira-liga.png',
+    color: '#006600',
+    participants: 18,
+    format: 'round-robin'
+  },
+  {
+    id: 'belgian-pro-league',
+    name: 'Belgian Pro League',
+    shortName: 'Pro League',
+    country: 'Belgium',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/pro-league.png',
+    color: '#000000',
+    participants: 16,
+    format: 'round-robin'
+  }
+];
+
+// Adăugăm competițiile noi (păstrez pentru compatibilitate)
+export const newCompetitions = [
+  // FIFA Club World Cup 2025
+  {
+    id: 'fifa-club-world-cup-2025',
+    name: 'FIFA Club World Cup 2025',
+    shortName: 'FIFA CWC 2025',
+    country: 'International',
+    type: 'international',
+    season: '2024-2025',
+    logo: '/logos/fifa-cwc.png',
+    color: '#326295',
+    participants: 32,
+    format: 'knockout',
+    startDate: '2025-06-15',
+    endDate: '2025-07-13'
+  },
+  
+  // UEFA Conference League
+  {
+    id: 'uefa-conference-league',
+    name: 'UEFA Europa Conference League',
+    shortName: 'UECL',
+    country: 'Europe',
+    type: 'continental',
+    season: '2024-2025',
+    logo: '/logos/uecl.png',
+    color: '#FF6B00',
+    participants: 184,
+    format: 'group-knockout',
+    startDate: '2024-07-11',
+    endDate: '2025-05-28'
+  },
+  
+  // Romania Liga 1
+  {
+    id: 'romania-liga-1',
+    name: 'Liga 1 România',
+    shortName: 'Liga 1',
+    country: 'Romania',
+    type: 'domestic',
+    season: '2024-2025',
+    logo: '/logos/liga1-romania.png',
+    color: '#FFD700',
+    participants: 16,
+    format: 'round-robin',
+    startDate: '2024-07-15',
+    endDate: '2025-05-25',
+    rounds: 30,
+    teams: [
+      'FCSB', 'CFR Cluj', 'Universitatea Craiova', 'Rapid București',
+      'Sepsi OSK', 'UTA Arad', 'Dinamo București', 'Petrolul Ploiești',
+      'FC Botoșani', 'Oțelul Galați', 'Poli Iași', 'Hermannstadt',
+      'FC Voluntari', 'Unirea Slobozia', 'Gloria Buzău', 'AFC Hermannstadt'
+    ]
+  }
+];
+
+// Funcții helper pentru competițiile noi
+export const getFIFAClubWorldCup = () => {
+  return allFootballCompetitions.find(comp => comp.id === 'fifa-club-world-cup-2025');
+};
+
+export const getUEFAConferenceLeague = () => {
+  return allFootballCompetitions.find(comp => comp.id === 'uefa-conference-league');
+};
+
+export const getRomaniaLiga1 = () => {
+  return allFootballCompetitions.find(comp => comp.id === 'romania-liga-1');
+};
+
+export const getAllCompetitions = () => {
+  // Returnăm toate competițiile de fotbal
+  return allFootballCompetitions;
+};
+
+export const getCompetitionsByCountry = (country: string) => {
+  return allFootballCompetitions.filter(comp => 
+    comp.country?.toLowerCase().includes(country.toLowerCase())
+  );
+};
+
+export const getCompetitionsByType = (type: 'domestic' | 'continental' | 'international') => {
+  return allFootballCompetitions.filter(comp => comp.type === type);
+};
+
+// Statistici pentru Liga 1 România
+export const liga1Stats = {
+  founded: 1909,
+  mostTitles: 'FCSB (27 titluri)',
+  currentChampion: 'FCSB',
+  topScorer: 'Gică Hagi (144 goluri)',
+  mostAppearances: 'Dorinel Munteanu (422 meciuri)',
+  stadiums: {
+    largest: 'Arena Națională (55,600)',
+    smallest: 'Stadionul Municipal Slobozia (5,000)'
+  }
+}; 
