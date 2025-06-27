@@ -537,11 +537,14 @@ Returnează doar titlul și conținutul articolului, fără alte comentarii.`;
     let title = '';
     let content = '';
 
-    const titleMatch = generatedText.match(/===TITLU===\s*([\s\S]*?)(?=\s*===CONȚINUT===|$)/);
+    const titleMatch = generatedText.match(
+      /(?:===TITLU===\s*|TITLU:\s*)(.*?)(?=\r?\n|$)/i
+    );
     if (titleMatch && titleMatch[1]) {
       title = titleMatch[1].trim();
     } else {
-      title = `${article.title}`;
+      // fallback: prima linie din răspuns
+      title = generatedText.split(/\r?\n/)[0].trim();
     }
 
     const contentMatch = generatedText.match(/===CONȚINUT===\s*([\s\S]*)/);

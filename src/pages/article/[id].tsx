@@ -192,35 +192,6 @@ export default function ArticlePage() {
   };
 
   // Stiluri pentru layout și componente
-  const headerStyle = {
-    padding: '1rem',
-    marginBottom: '1rem',
-    borderBottom: '1px solid #f0f0f0',
-  };
-
-  const logoStyle = {
-    cursor: 'pointer',
-  };
-
-  const navStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    maxWidth: '1200px',
-    margin: '0 auto',
-  };
-
-  const navLinksStyle = {
-    display: 'flex',
-    gap: '1rem',
-  };
-
-  const navLinkStyle = {
-    color: '#333',
-    textDecoration: 'none',
-    fontWeight: 'medium',
-  };
-
   const containerStyle = {
     maxWidth: '1000px',
     margin: '0 auto',
@@ -334,28 +305,50 @@ export default function ArticlePage() {
         <style>{blockquoteStyle}</style>
       </Head>
 
-      {/* Header cu design minimalist */}
-      <header style={headerStyle}>
-        <nav style={navStyle}>
-          <Link href="/">
-            <div style={logoStyle}>
-              <img src="/logo.svg" alt="AiSport Logo" style={{ height: '40px', width: 'auto' }} />
-            </div>
-          </Link>
-          <div style={navLinksStyle}>
-            <Link href="/" style={navLinkStyle}>
-              Acasă
+      {/* Header modern profesional */}
+      <header className="main-header">
+        <div className="header-container">
+          <div className="brand-section">
+          <Link href="/" className="brand-logo">
+              <div className="logo-container">
+                <Image
+                  src="/logo.png"
+                  alt="SportAzi.ro Logo"
+                  width={45}
+                  height={45}
+                  priority
+                  className="logo-image"
+                />
+                <div className="brand-text">
+                  <span className="brand-name">SportAzi</span>
+                  <span className="brand-domain">.ro</span>
+                </div>
+              </div>
             </Link>
-            <Link href="/subscribe" style={navLinkStyle}>
-              Abonare
-            </Link>
-            {isAdmin && (
-              <Link href="/admin" style={navLinkStyle}>
-                Admin
-              </Link>
-            )}
+            <span className="brand-tagline">Știri Sportive de Ultimă Oră</span>
           </div>
-        </nav>
+
+          <nav className="main-navigation">
+            <Link href="/" className="nav-link">Acasă</Link>
+            <Link href="/subscribe" className="nav-link">Abonare</Link>
+            {isAdmin && (
+              <Link href="/admin" className="nav-link">Admin</Link>
+            )}
+          </nav>
+
+          <div className="header-actions">
+            <div className="live-indicator">
+              <span className="live-dot"></span>
+              <span className="live-text">LIVE</span>
+            </div>
+            <div className="current-time">
+              {new Date().toLocaleTimeString('ro-RO', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </div>
+          </div>
+        </div>
       </header>
 
       <main style={containerStyle}>
@@ -421,6 +414,222 @@ export default function ArticlePage() {
           )}
         </article>
       </main>
+
+      <style jsx>{`
+        .main-header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 1rem 0;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .main-header::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+          pointer-events: none;
+        }
+
+        .header-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 2rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          position: relative;
+          z-index: 1;
+        }
+
+        .brand-section {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .brand-logo {
+          display: block;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          transition: transform 0.3s ease;
+          text-decoration: none;
+        }
+
+        .brand-logo:hover {
+          transform: scale(1.05);
+        }
+
+        .logo-container {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .logo-image {
+          border-radius: 8px;
+        }
+
+        .brand-text {
+          display: flex;
+          align-items: baseline;
+          gap: 0;
+        }
+
+        .brand-name {
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: white;
+          letter-spacing: -0.02em;
+          transition: color 0.3s ease;
+        }
+
+        .brand-domain {
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: #ffd700;
+          letter-spacing: -0.02em;
+        }
+
+        .brand-tagline {
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.8);
+          font-weight: 500;
+          margin-left: 1rem;
+        }
+
+        .main-navigation {
+          display: flex;
+          gap: 2rem;
+          align-items: center;
+        }
+
+        .nav-link {
+          color: white;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 1rem;
+          padding: 0.5rem 1rem;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+          position: relative;
+        }
+
+        .nav-link:hover {
+          background: rgba(255, 255, 255, 0.1);
+          transform: translateY(-1px);
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+        }
+
+        .live-indicator {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(255, 0, 0, 0.9);
+          padding: 0.4rem 0.8rem;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          animation: pulse 2s infinite;
+        }
+
+        .live-dot {
+          width: 6px;
+          height: 6px;
+          background: white;
+          border-radius: 50%;
+          animation: blink 1s infinite;
+        }
+
+        .live-text {
+          color: white;
+        }
+
+        .current-time {
+          font-size: 1rem;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+          padding: 0.5rem 1rem;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+          .header-container {
+            padding: 0 1rem;
+            flex-direction: column;
+            gap: 1rem;
+          }
+
+          .brand-section {
+            justify-content: center;
+          }
+
+          .brand-name {
+            font-size: 1.5rem;
+          }
+
+          .main-navigation {
+            gap: 1rem;
+          }
+
+          .nav-link {
+            font-size: 0.9rem;
+            padding: 0.4rem 0.8rem;
+          }
+
+          .header-actions {
+            gap: 1rem;
+          }
+
+          .current-time {
+            font-size: 0.9rem;
+            padding: 0.4rem 0.8rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .brand-name {
+            font-size: 1.3rem;
+          }
+
+          .brand-tagline {
+            font-size: 0.75rem;
+          }
+
+          .main-navigation {
+            flex-wrap: wrap;
+            justify-content: center;
+          }
+
+          .nav-link {
+            font-size: 0.85rem;
+          }
+        }
+      `}</style>
     </div>
   );
 } 
