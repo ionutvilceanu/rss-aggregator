@@ -340,7 +340,7 @@ Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, 
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct', 
+        model: 'openai/gpt-oss-120b', 
         messages: [
           {
             role: 'system',
@@ -508,7 +508,7 @@ Returnează doar titlul și conținutul articolului, fără alte comentarii.`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-maverick-17b-128e-instruct',  // Model complet pentru generarea finală
+        model: 'openai/gpt-oss-120b',  // Model complet pentru generarea finală
         messages: [
           {
             role: 'system',
