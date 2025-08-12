@@ -10,6 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = await pool.query(`
       SELECT id, title, content, image_url, source_url, pub_date, created_at, is_manual
       FROM articles 
+      WHERE COALESCE(is_deleted, FALSE) = FALSE
       ORDER BY pub_date DESC
     `);
 

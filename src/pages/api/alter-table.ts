@@ -15,6 +15,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         END IF;
       END $$;
     `);
+
+    // Adăugăm coloana is_deleted dacă nu există
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name='articles' AND column_name='is_deleted'
+        ) THEN
+          ALTER TABLE articles ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+        END IF;
+      END $$;
+    `);
     
     return res.status(200).json({ message: 'Tabelul a fost actualizat cu succes' });
   } catch (error) {

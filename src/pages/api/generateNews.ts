@@ -340,7 +340,7 @@ Fiecare cerere trebuie să fie foarte specifică și să conțină nume exacte, 
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b', 
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct', 
         messages: [
           {
             role: 'system',
