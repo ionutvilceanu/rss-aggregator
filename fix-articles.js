@@ -1,14 +1,11 @@
 // Conectarea la baza de date
+require('dotenv').config({ path: '.env.local' });
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  user: 'postgres',
-  password: 'postgres',
-  host: 'icsoft.go.ro',
-  port: 5432, 
-  database: 'newDB',
-  ssl: false,
-  application_name: 'rapidapp_nodejs'
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  application_name: 'newsion_app'
 });
 
 async function main() {

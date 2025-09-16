@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Pool } from 'pg';
+// db pool este centralizat în lib/db
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
 import { searchSportsNews, searchWeb } from '../../lib/webSearch';

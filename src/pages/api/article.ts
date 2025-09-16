@@ -1,16 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { Pool } from 'pg';
+import pool from '../../lib/db';
 import Parser from 'rss-parser';
-
-const pool = new Pool({
-  user: 'postgres',
-  password: 'postgres',
-  host: 'icsoft.go.ro',
-  port: 5432, 
-  database: 'newDB',
-  ssl:  false,
-  application_name: 'rapidapp_nodejs'
-});
 
 // Funcția de traducere folosind Google Translate API
 async function translateText(text: string, targetLang: string): Promise<string> {
