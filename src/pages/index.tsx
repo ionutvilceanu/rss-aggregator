@@ -47,13 +47,17 @@ export default function Home() {
         setLoading(true);
       }
       const res = await fetch(`/api/fetchRSS?page=${page}&limit=${pagination.limit}`);
-      const data = await res.json();
+      const data = await res.json().catch(() => ({} as any));
+      const safeArticles: Article[] = Array.isArray((data as any).articles) ? (data as any).articles : [];
+      const safePagination: PaginationInfo = (data as any).pagination
+        ? (data as any).pagination
+        : { total: 0, page, limit: pagination.limit, pages: 0 };
       if (page > 1) {
-        setArticles(prev => [...prev, ...data.articles]);
+        setArticles(prev => [...prev, ...safeArticles]);
       } else {
-        setArticles(data.articles);
+        setArticles(safeArticles);
       }
-      setPagination(data.pagination);
+      setPagination(safePagination);
     } catch (err) {
       console.error(err);
     } finally {
