@@ -46,12 +46,14 @@ if (shouldUseSsl && isAivenHost && !caValue) {
   caValue = AIVEN_CA_FALLBACK;
 }
 
+// Construim opțiunea SSL. Pentru provideri precum Supabase, este util să setăm explicit `require: true`
+// atunci când nu avem un CA furnizat, pentru a evita erorile de tip SELF_SIGNED_CERT_IN_CHAIN.
 const sslOption: any = shouldUseSsl
   ? (isInsecureSsl
-      ? { rejectUnauthorized: false }
+      ? { require: true, rejectUnauthorized: false }
       : (caValue
           ? { ca: Array.isArray(caValue) ? caValue : [caValue], rejectUnauthorized: true }
-          : { rejectUnauthorized: false }))
+          : { require: true, rejectUnauthorized: false }))
   : undefined;
 
 const pool = new Pool({

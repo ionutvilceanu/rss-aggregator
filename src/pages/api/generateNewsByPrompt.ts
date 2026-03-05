@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { chatComplete } from '../../lib/llm';
 import pool from '../../lib/db';
 import { searchWeb } from '../../lib/webSearch';
 
@@ -159,41 +160,17 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
 ===CONȚINUT===
 [Scrie aici conținutul articolului]`;
 
-    // API key pentru Groq
-    const apiKey = process.env.GROQ_API_KEY || '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';
-    
-    // Facem cererea către Groq API
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-r1-distill-llama-70b',  // Același model ca în generateNews.ts
-        messages: [
-          {
-            role: 'system',
-            content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
-          },
-          {
-            role: 'user',
-            content: finalPrompt
-          }
-        ],
-        temperature: 0.5,
-        max_tokens: 4000
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Răspuns complet de la Groq:', errorText);
-      throw new Error(`Eroare la generarea articolului: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const generatedText = data.choices[0]?.message?.content || '';
+    const generatedText = await chatComplete(
+      [
+        {
+          role: 'system',
+          content:
+            'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
+        },
+        { role: 'user', content: finalPrompt }
+      ],
+      { temperature: 0.5, maxTokens: 4000 }
+    );
     
     // Extragem titlul și conținutul din răspuns
     let title = '';

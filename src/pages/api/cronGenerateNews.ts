@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
 import { searchSportsNews } from '../../lib/webSearch';
-import { generateArticleWithGemini } from '../../lib/geminiAPI';
+// import { generateArticleWithGemini } from '../../lib/geminiAPI';
+import { chatComplete } from '../../lib/llm';
 
 interface Article {
   id?: number;
@@ -140,46 +141,17 @@ Răspunsul tău trebuie să conțină:
 TITLU: [Titlu captivant care subliniază actualitatea știrii]
 CONȚINUT: [Articolul rescris păstrând caracterul actual al informațiilor, minim 500 cuvinte]`;
 
-    // API key pentru Groq cu modelul DeepSeek
-    const apiKey = process.env.GROQ_API_KEY || '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';
-    
-    console.log("Folosim Groq cu modelul DeepSeek pentru generarea articolului...");
-    
-     // Facem cererea către OpenRouter API
-     console.log("Începem cererea către OpenRouter API...");
-     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-       method: 'POST',
-       headers: {
-         'Content-Type': 'application/json',
-         'Authorization': `Bearer ${apiKey}`,
-         'HTTP-Referer': 'https://rss-aggregator.vercel.app/', // Înlocuiește cu domeniul tău
-         'X-Title': 'RSS Aggregator' // Numele aplicației tale
-       },
-       body: JSON.stringify({
-         model: '',  // Specificăm modelul DeepSeek
-         messages: [
-           {
-             role: 'system',
-             content: 'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
-           },
-           {
-             role: 'user',
-             content: prompt
-           }
-         ],
-         temperature: 0.7,
-         max_tokens: 4000
-       })
-     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Eroare API Groq:', errorData);
-      throw new Error(`Eroare API Groq: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const generatedText = data.choices[0]?.message?.content || '';
+    const generatedText = await chatComplete(
+      [
+        {
+          role: 'system',
+          content:
+            'Ești un jurnalist sportiv de actualitate care raportează evenimente sportive recente și știri de ultimă oră din data publicării lor. Consideri informațiile ca fiind actuale și la zi. Ești expert în contextualizarea știrilor și integrarea informațiilor din surse multiple.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      { temperature: 0.7, maxTokens: 4000 }
+    );
 
     // Extragem titlul și conținutul din răspuns
     let title = '';

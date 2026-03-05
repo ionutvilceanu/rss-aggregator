@@ -91,7 +91,14 @@ async function searchWebFreeAlternative(searchQuery: string): Promise<string> {
     
     try {
       const wikiUrl = `https://ro.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&format=json&utf8=&origin=*`;
-      const wikiResponse = await axios.get(wikiUrl);
+      const wikiResponse = await axios.get(wikiUrl, {
+        headers: {
+          // Wikipedia cere un User-Agent clar; altfel poate răspunde 403
+          'User-Agent': 'NewsIonBot/1.0 (+https://example.com/contact)'
+        },
+        // În unele rețele, necesită agent TLS fără SNI strict
+        httpsAgent: new (require('https').Agent)({ keepAlive: true })
+      });
       
       if (wikiResponse.data.query.search.length > 0) {
         const topResult = wikiResponse.data.query.search[0];
@@ -99,8 +106,9 @@ async function searchWebFreeAlternative(searchQuery: string): Promise<string> {
         resultText += `   ${topResult.snippet.replace(/<[^>]*>/g, '')}\n`;
         resultText += `   Sursă: https://ro.wikipedia.org/wiki/${encodeURIComponent(topResult.title)}\n\n`;
       }
-    } catch (wikiError) {
-      console.error('Eroare la căutarea Wikipedia:', wikiError);
+    } catch (wikiError: any) {
+      console.error('Eroare la căutarea Wikipedia:', wikiError?.message || wikiError);
+      // continuăm fără a întrerupe fluxul
     }
     
     // 2. Căutare Google News (metoda alternativă folosind un proxy gratuit sau RSS feed-uri)

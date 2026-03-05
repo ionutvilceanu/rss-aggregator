@@ -20,13 +20,13 @@ function createPool() {
   const insecure = (process.env.PG_SSL_INSECURE || '').toLowerCase() === '1' || (process.env.PG_SSL_INSECURE || '').toLowerCase() === 'true';
   if (/sslmode=require/.test(connectionString) || caPath || caInline || insecure) {
     if (insecure) {
-      ssl = { rejectUnauthorized: false };
+      ssl = { require: true, rejectUnauthorized: false };
     } else if (caPath && fs.existsSync(caPath)) {
       ssl = { ca: fs.readFileSync(caPath, 'utf8'), rejectUnauthorized: true };
     } else if (caInline) {
       ssl = { ca: caInline, rejectUnauthorized: true };
     } else {
-      ssl = { rejectUnauthorized: false };
+      ssl = { require: true, rejectUnauthorized: false };
     }
   }
 

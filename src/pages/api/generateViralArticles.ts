@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import pool from '../../lib/db';
 import { getViralTopics, getTopicContext } from '../../lib/trendSearch';
+import { chatComplete } from '../../lib/llm';
 
 interface ViralArticleRequest {
   count?: number;
@@ -187,41 +188,17 @@ RĂSPUNDE FOLOSIND EXACT URMĂTORUL FORMAT:
 ===IMAGINE===
 [Descrie aici o imagine sugestivă pentru acest articol] (opțional)`;
 
-    // API key pentru Groq
-    const apiKey = process.env.GROQ_API_KEY || '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';
-    
-    // Facem cererea către Groq API
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',  // Model puternic pentru generare de calitate
-        messages: [
-          {
-            role: 'system',
-            content: 'Ești un jurnalist expert specializat în actualități din România. Scrii articole profesionale, informative și captivante despre subiecte de interes național. Folosești un stil jurnalistic de calitate, cu structură clară și informații verificate. Articolele tale sunt obiective, bine documentate și respectă principiile jurnalismului profesionist.'
-          },
-          {
-            role: 'user',
-            content: finalPrompt
-          }
-        ],
-        temperature: 0.6,
-        max_tokens: 4000
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Răspuns complet de la Groq:', errorText);
-      throw new Error(`Eroare la generarea articolului: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const generatedText = data.choices[0]?.message?.content || '';
+    const generatedText = await chatComplete(
+      [
+        {
+          role: 'system',
+          content:
+            'Ești un jurnalist expert specializat în actualități din România. Scrii articole profesionale, informative și captivante despre subiecte de interes național. Folosești un stil jurnalistic de calitate, cu structură clară și informații verificate. Articolele tale sunt obiective, bine documentate și respectă principiile jurnalismului profesionist.'
+        },
+        { role: 'user', content: finalPrompt }
+      ],
+      { temperature: 0.6, maxTokens: 4000 }
+    );
     
     console.log('Răspuns primit de la API:', generatedText.substring(0, 200));
     
