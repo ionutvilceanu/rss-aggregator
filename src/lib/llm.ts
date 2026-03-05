@@ -151,7 +151,7 @@ async function geminiComplete(messages: ChatMessage[], options: ChatOptions = {}
     // Retry pe 429/503
     if (resp.status === 429 || resp.status === 503) {
       const retryAfterHeader = resp.headers.get('retry-after');
-      let waitMs = retryAfterHeader ? parseFloat(retryAfterHeader) * 1000 : 20000;
+      const waitMs = retryAfterHeader ? parseFloat(retryAfterHeader) * 1000 : 20000;
       if (attempt < maxAttempts) {
         await new Promise((r) => setTimeout(r, waitMs));
         continue;

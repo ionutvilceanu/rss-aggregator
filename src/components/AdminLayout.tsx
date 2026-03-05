@@ -5,14 +5,11 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import RssFeedIcon from '@mui/icons-material/RssFeed';
 import CreateIcon from '@mui/icons-material/Create';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import WebIcon from '@mui/icons-material/Web';
-import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import MovieIcon from '@mui/icons-material/Movie';
 import ChatIcon from '@mui/icons-material/Chat';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import { MenuItem } from '@mui/material';
 
 interface AdminLayoutProps {
   children: React.ReactNode;

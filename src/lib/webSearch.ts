@@ -97,7 +97,7 @@ async function searchWebFreeAlternative(searchQuery: string): Promise<string> {
           'User-Agent': 'NewsIonBot/1.0 (+https://example.com/contact)'
         },
         // În unele rețele, necesită agent TLS fără SNI strict
-        httpsAgent: new (require('https').Agent)({ keepAlive: true })
+        httpsAgent: new https.Agent({ keepAlive: true })
       });
       
       if (wikiResponse.data.query.search.length > 0) {

@@ -143,7 +143,7 @@ CONȚINUT: [articolul]`;
           const titleMatch = text.match(/TITLU:\s*([^\n\r]+)/i);
           const contentMatch = text.match(/CONȚINUT:\s*([\s\S]+)/i);
           const title = (titleMatch?.[1] || topic).trim().replace(/###/g, '');
-          let content = (contentMatch?.[1] || text).trim().replace(/###/g, '');
+          const content = (contentMatch?.[1] || text).trim().replace(/###/g, '');
 
           const insert = await pool.query(
             `INSERT INTO articles (title, content, image_url, source_url, pub_date, is_manual)
