@@ -71,6 +71,7 @@ export default function AdminPage() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': 'secure_cron_key'
         },
         body: JSON.stringify({ id }),
       });

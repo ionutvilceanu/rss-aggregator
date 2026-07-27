@@ -1,43 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Parser from 'rss-parser';
 import pool from '../../lib/db';
+import { RSS_FEEDS } from '../../lib/rssFeeds';
+import { DEFAULT_ARTICLE_IMAGE, extractImageFromRssItem } from '../../lib/articleImages';
 
-const parser = new Parser();
+const parser = new Parser({
+  headers: {
+    'User-Agent': 'SportAziBot/1.0 (+https://www.sportazi.ro)',
+  },
+});
 
-// Feed-urile pe care vrei să le agregi
-const RSS_FEEDS = [
-  'https://www.gazzetta.it/dynamic-feed/rss/section/last.xml',
-  'https://e00-marca.uecdn.es/rss/portada.xml',
-  'https://www.mundodeportivo.com/rss/home.xml',
-  'https://www.digisport.ro/rss' // Adăugare DigiSport
-];
-
-// Funcția de traducere folosind Google Translate API
-async function translateText(text: string, targetLang: string): Promise<string> {
-  if (!text) return '';
-
-  try {
-    const response = await fetch('https://translate-pa.googleapis.com/v1/translateHtml', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json+protobuf',
-        'X-Goog-API-Key': 'AIzaSyATBXajvzQLTDHEQbcpq0Ihe0vWDHmO520'
-      },
-      body: JSON.stringify([[[text], 'auto', targetLang], 'wt_lib']),
-    });
-
-    if (!response.ok) {
-      console.error('Eroare traducere, status:', response.status);
-      return text;
-    }
-
-    const data = await response.json();
-    return (data[0] && data[0][0]) || text;
-  } catch (error) {
-    console.error('Translation error:', error);
-    return text; // Dacă apare o eroare, returnează textul original
-  }
-}
+const FEED_URLS = RSS_FEEDS.filter((f) => f.category !== 'discovery').map((f) => f.url);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Verifica metoda HTTP
@@ -88,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Preluăm feed-urile în paralel
     console.log('Începerea preluării RSS feeds...');
-    const feedPromises = RSS_FEEDS.map((feed) => {
+    const feedPromises = FEED_URLS.map((feed) => {
       console.log(`Preluare din: ${feed}`);
       return parser.parseURL(feed).catch(error => {
         console.error(`Eroare la preluarea feed-ului ${feed}:`, error);
@@ -103,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         title: item.title || '',
         link: item.link || '',
         pubDate: item.pubDate || new Date().toISOString(),
-        image: item.enclosure?.url || '',
+        image: extractImageFromRssItem(item as Parameters<typeof extractImageFromRssItem>[0]) || item.enclosure?.url || '',
         content: item.contentSnippet || item.content || '',
       })) : []
     );
@@ -115,24 +88,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
     });
 
-    // Traducem articolele
-    const translatedArticles = await Promise.all(
-      sortedFeedArticles.map(async (article) => {
-        const translatedTitle = await translateText(article.title, 'en');
-        const translatedContent = await translateText(article.content, 'en');
-        return {
-          ...article,
-          title: translatedTitle,
-          content: translatedContent,
-        };
-      })
-    );
-
     // Salvăm articolele în baza de date (doar cele care nu există deja)
     let inserted = 0;
     let skipped = 0;
 
-    for (const article of translatedArticles) {
+    for (const article of sortedFeedArticles) {
+      const imageUrl = article.image && article.image !== '' ? article.image : DEFAULT_ARTICLE_IMAGE;
+
       try {
         // Verificăm mai întâi dacă articolul există deja
         const checkResult = await pool.query(
@@ -149,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             [
               article.title,
               article.content,
-              article.image,
+              imageUrl,
               article.link,
               new Date(article.pubDate)
             ]
@@ -166,7 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json({
       message: `Import terminat. Articole noi: ${inserted}, articole sărite (deja existente): ${skipped}`,
-      total: translatedArticles.length
+      total: sortedFeedArticles.length
     });
   } catch (error) {
     console.error('Eroare la importul feed-urilor RSS:', error);

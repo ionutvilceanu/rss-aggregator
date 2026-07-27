@@ -32,21 +32,20 @@ export default async function handler(
       return res.status(404).json({ message: 'Articolul nu a fost găsit' });
     }
 
-    // Soft-delete dacă există coloana is_deleted, altfel hard-delete
-    await db.query(
-      `DO $$
-       BEGIN
-         IF EXISTS (
-           SELECT FROM information_schema.columns 
-           WHERE table_name='articles' AND column_name='is_deleted'
-         ) THEN
-           UPDATE articles SET is_deleted = TRUE WHERE id = $1;
-         ELSE
-           DELETE FROM articles WHERE id = $1;
-         END IF;
-       END $$;`,
-      [id]
-    );
+    // Verificăm dacă există coloana is_deleted
+    const checkCol = await db.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='articles' AND column_name='is_deleted'
+    `);
+
+    if (checkCol.rows.length > 0) {
+      // Soft-delete
+      await db.query('UPDATE articles SET is_deleted = TRUE WHERE id = $1', [id]);
+    } else {
+      // Hard-delete
+      await db.query('DELETE FROM articles WHERE id = $1', [id]);
+    }
 
     // Returnăm un răspuns de succes
     return res.status(200).json({ message: 'Articolul a fost eliminat' });

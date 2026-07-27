@@ -7,12 +7,7 @@ export default function GenerateNews() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
-  const [enableWebSearch, setEnableWebSearch] = useState(true);
-  
-  // Format data curentă ca YYYY-MM-DD
-  const currentDate = new Date().toISOString().split('T')[0];
-  const [customDate, setCustomDate] = useState(currentDate);
-  const [useCustomDate, setUseCustomDate] = useState(false);
+  const [count, setCount] = useState(5);
 
   const handleGenerateNews = async () => {
     setLoading(true);
@@ -22,14 +17,8 @@ export default function GenerateNews() {
     try {
       const response = await fetch('/api/generateNews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          forceRefresh,
-          customDate: useCustomDate ? customDate : null,
-          enableWebSearch
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceRefresh, count }),
       });
 
       const data = await response.json();
@@ -50,7 +39,7 @@ export default function GenerateNews() {
     <div className="container mx-auto px-4 py-8">
       <Head>
         <title>Generare Știri - Admin</title>
-        <meta name="description" content="Panou de generare a știrilor folosind AI" />
+        <meta name="description" content="Panou de generare a știrilor sport folosind AI" />
       </Head>
 
       <header className="mb-8">
@@ -58,7 +47,7 @@ export default function GenerateNews() {
           <div className="container mx-auto flex justify-between items-center">
             <Link href="/admin">
               <div className="flex items-center gap-2">
-                <img src="/logo.svg" alt="AiSport Logo" className="h-8 w-auto" />
+                <img src="/logo.svg" alt="SportAzi Logo" className="h-8 w-auto" />
                 <span className="text-xl font-bold">Panou Administrare</span>
               </div>
             </Link>
@@ -72,33 +61,43 @@ export default function GenerateNews() {
             </div>
           </div>
         </div>
-        <h1 className="text-3xl font-bold mb-4">Generare Știri cu AI</h1>
+        <h1 className="text-3xl font-bold mb-4">Generare Știri Sport cu AI</h1>
       </header>
 
       <main>
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Generare Știri Automată</h2>
+          <h2 className="text-xl font-semibold mb-4">Generare automată din surse live</h2>
           <p className="mb-4">
-            Această funcție va genera articole noi și îmbunătățite pe baza ultimelor 5 știri din sursele RSS.
-            Algoritmul AI va:
+            Sistemul caută subiecte sportive actuale din feed-uri RSS românești și internaționale
+            (DigiSport, GSP, ProSport, Google News Sport, Marca, ESPN etc.), apoi generează articole
+            originale cu OpenRouter AI, bazate pe faptele din surse.
           </p>
-          <ul className="list-disc pl-6 mb-4">
-            <li>Citi și analiza <strong>titlul și conținutul complet</strong> al articolelor originale</li>
-            <li>Extrage informațiile cheie și faptele importante</li>
-            <li>Efectua cercetare adițională despre subiect</li>
-            <li>Genera un articol complet rescris, bine structurat și informatv</li>
-            <li>Adăuga context și detalii relevante suplimentare</li>
-            <li className="font-semibold text-green-700">Păstra actualitatea și referințele temporale din articolul original</li>
-            {enableWebSearch && (
-              <li className="font-semibold text-blue-700">Efectua căutări web pentru informații recente și context adițional</li>
-            )}
+          <ul className="list-disc pl-6 mb-4 text-gray-700">
+            <li>Agregare automată din 9+ surse RSS sport</li>
+            <li>Context real din snippet-uri și titluri de știri</li>
+            <li>Articole în română, 400-600 cuvinte, ton jurnalistic</li>
+            <li>Anti-duplicare: nu regenerează subiecte procesate în ultimele 48h</li>
           </ul>
-          <p className="mb-6">
-            Fiecare articol va avea minim 500 de cuvinte și va fi structurat cu introducere, cuprins detaliat
-            și concluzie, folosind un stil jurnalistic profesionist.
-          </p>
 
           <div className="space-y-4 mb-6">
+            <div className="flex items-center gap-4">
+              <label htmlFor="count" className="text-sm font-medium">
+                Număr articole:
+              </label>
+              <select
+                id="count"
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                className="px-2 py-1 border rounded"
+              >
+                {[3, 5, 7, 10].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -108,41 +107,8 @@ export default function GenerateNews() {
                 className="mr-2 h-5 w-5 text-blue-600"
               />
               <label htmlFor="forceRefresh" className="text-sm font-medium">
-                Forțează reîmprospătarea (va regenera articole chiar dacă au fost procesate anterior)
+                Forțează regenerarea (ignoră deduplicarea)
               </label>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="enableWebSearch"
-                checked={enableWebSearch}
-                onChange={(e) => setEnableWebSearch(e.target.checked)}
-                className="mr-2 h-5 w-5 text-blue-600"
-              />
-              <label htmlFor="enableWebSearch" className="text-sm font-medium">
-                Activează căutarea web pentru informații actuale
-              </label>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="useCustomDate"
-                checked={useCustomDate}
-                onChange={(e) => setUseCustomDate(e.target.checked)}
-                className="mr-2 h-5 w-5 text-blue-600"
-              />
-              <label htmlFor="useCustomDate" className="text-sm font-medium mr-4">
-                Folosește data personalizată:
-              </label>
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                disabled={!useCustomDate}
-                className={`px-2 py-1 border rounded ${!useCustomDate ? 'bg-gray-100 text-gray-500' : ''}`}
-              />
             </div>
           </div>
 
@@ -153,7 +119,7 @@ export default function GenerateNews() {
               loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {loading ? 'Se procesează...' : 'Generează Știri Noi'}
+            {loading ? 'Se generează articole...' : `Generează ${count} Știri Sport`}
           </button>
         </div>
 
@@ -168,7 +134,14 @@ export default function GenerateNews() {
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
             <p className="font-bold">Succes:</p>
             <p>{result.message}</p>
-            
+
+            {result.skipped?.length > 0 && (
+              <p className="mt-2 text-sm">Sărite (duplicate): {result.skipped.join(', ')}</p>
+            )}
+            {result.errors?.length > 0 && (
+              <p className="mt-2 text-sm text-orange-700">Erori: {result.errors.join('; ')}</p>
+            )}
+
             {result.articles && result.articles.length > 0 && (
               <div className="mt-4">
                 <h3 className="font-bold mb-2">Articole generate:</h3>
@@ -188,4 +161,4 @@ export default function GenerateNews() {
       </main>
     </div>
   );
-} 
+}

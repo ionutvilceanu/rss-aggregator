@@ -366,11 +366,10 @@ export default function ArticlePage() {
             </p>
           </header>
           
-          {article.image_url && (
-            <div style={imageContainerStyle}>
-              <Image
-                src={article.image_url}
-                alt={cleanTitle(article.title)}
+          <div style={imageContainerStyle}>
+            <Image
+              src={article.image_url || '/default.png'}
+              alt={cleanTitle(article.title)}
                 style={{
                   width: '100%',
                   height: 'auto',
@@ -381,9 +380,8 @@ export default function ArticlePage() {
                 width={1000}
                 height={600}
                 priority
-              />
-            </div>
-          )}
+            />
+          </div>
           
           <div 
             style={contentStyle}
